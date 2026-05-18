@@ -1,5 +1,6 @@
-import { BOARD_SIZE, useZhChessGame } from '../hooks/useZhChessGame'
+import { BOARD_SIZE, useChessGame } from '../hooks/useChessGame'
 import { peiceSideMap, type PieceSide } from 'zh-chess'
+import { SessionList } from './SessionList'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
   { value: 'RED', label: '红方（先手）' },
@@ -9,6 +10,9 @@ const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
 export function ChessGame() {
   const {
     canvasRef,
+    sessions,
+    activeSession,
+    activeSessionId,
     playerSide,
     setPlayerSide,
     currentTurn,
@@ -18,7 +22,15 @@ export function ChessGame() {
     statusMessage,
     startNewGame,
     flipBoard,
-  } = useZhChessGame()
+    createSession,
+    switchSession,
+    deleteSession,
+    renameSession,
+  } = useChessGame()
+
+  const canChangeSide = activeSession.status === 'setup' || !!winner
+  const startLabel =
+    activeSession.status === 'setup' ? '开始对局' : '重开对局'
 
   return (
     <div className="app">
@@ -50,6 +62,15 @@ export function ChessGame() {
         </section>
 
         <aside className="sidebar">
+          <SessionList
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            onSelect={switchSession}
+            onCreate={createSession}
+            onDelete={deleteSession}
+            onRename={renameSession}
+          />
+
           <section className="card">
             <h2>对局</h2>
             <p className="status">{statusMessage}</p>
@@ -70,7 +91,7 @@ export function ChessGame() {
               <select
                 value={playerSide}
                 onChange={(e) => setPlayerSide(e.target.value as PieceSide)}
-                disabled={!!currentTurn && !winner}
+                disabled={!canChangeSide}
               >
                 {SIDE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -82,7 +103,7 @@ export function ChessGame() {
 
             <div className="actions">
               <button type="button" className="btn primary" onClick={startNewGame}>
-                新对局
+                {startLabel}
               </button>
               <button type="button" className="btn" onClick={flipBoard}>
                 翻转视角
@@ -112,18 +133,6 @@ export function ChessGame() {
             <h2>局面 PEN</h2>
             <p className="hint">供 Phase 2 大模型读盘与回棋</p>
             <pre className="pen-block">{positionPen || '—'}</pre>
-          </section>
-
-          <section className="card card-muted roadmap">
-            <h2>后续</h2>
-            <ul>
-              <li>
-                <strong>Phase 2</strong>：接入 LLM 执黑/执红对弈
-              </li>
-              <li>
-                <strong>Phase 3</strong>：复盘、杀法训练与成长曲线
-              </li>
-            </ul>
           </section>
         </aside>
       </main>
