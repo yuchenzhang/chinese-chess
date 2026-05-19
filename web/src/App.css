@@ -806,3 +806,126 @@
   background: color-mix(in srgb, var(--surface) 60%, white 6%);
   border-radius: 4px;
 }
+
+/* Capture event tag */
+.capture-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: #f59e0b22;
+  color: #fbbf24;
+  border: 1px solid #f59e0b44;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.move-list li.move-capture {
+  border-left: 2px solid #f59e0b;
+  padding-left: 0.5rem;
+}
+
+/* Notable move tag (妙手) */
+.notable-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  background: #8b5cf622;
+  color: #c4b5fd;
+  border: 1px solid #8b5cf644;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.notable-reason {
+  margin-left: 0.2rem;
+  font-weight: 400;
+}
+
+.move-list li.move-notable {
+  border-left: 2px solid #8b5cf6;
+  padding-left: 0.5rem;
+}
+
+.move-list li.move-capture.move-notable {
+  border-left: 2px solid #8b5cf6;
+}
+
+/* Captured pieces display */
+.board-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.captured-pieces {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 720px;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.captured-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.captured-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 4.5rem;
+}
+
+.captured-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.captured-piece {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 2px solid;
+  position: relative;
+}
+
+.captured-piece-red {
+  background: #fff8e8;
+  color: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.captured-piece-black {
+  background: #f5ecd8;
+  color: #1c1917;
+  border-color: #44403c;
+}
+
+.captured-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  width: 1rem;
+  height: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
