@@ -5,7 +5,7 @@
 
 const STORAGE_KEY = 'chinese-chess:llm-connection:v2'
 
-const DEFAULT_BACKEND_URL = 'http://127.0.0.1:3001'
+const DEFAULT_BACKEND_URL = 'http://127.0.0.1:8000'
 
 interface ConnStore {
   version: 2

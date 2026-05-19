@@ -7,17 +7,18 @@ function cnNum(n: number): string {
 
 /**
  * 将走法转换为中文记谱（如 "炮二平五"）
- * 逻辑参考 server/src/utils/penValidator.ts
  */
 export function moveToNotation(
   piece: { name: string; x: number; y: number },
   to: Point,
-  side: PieceSide
+  side: PieceSide,
+  simplify = true
 ): string {
   const { name: pieceName, x: fromX, y: fromY } = piece
 
   // BOTH sides use 9 - x to match zh-chess engine expectation
   const fromFile = 9 - fromX
+  const toFile = 9 - to.x
 
   const dy = to.y - fromY
   const isHorizontal = dy === 0
@@ -30,30 +31,31 @@ export function moveToNotation(
 
   if (isHorizontal) {
     direction = '平'
-    const toFile = 9 - to.x
     dest = cnNum(toFile)
   } else {
     direction = isForward ? '进' : '退'
     // 直线棋子（车炮兵卒帅将）：用步数
     // 斜线棋子（马相士）：用目标列
-    const isLinear = ['车', '炮', '兵', '卒', '帅', '将', '砲', '車', '馬', '象', '仕', '將', '帥'].includes(pieceName)
+    const isLinear = ['车', '車', '俥', '炮', '砲', '兵', '卒', '帅', '帥', '将', '將'].includes(pieceName)
     if (isLinear) {
       dest = cnNum(Math.abs(dy))
     } else {
-      const toFile = 9 - to.x
       dest = cnNum(toFile)
     }
   }
 
   // 统一简化字名称用于展示
-  const displayName = pieceName
-    .replace('砲', '炮')
-    .replace('車', '车')
-    .replace('馬', '马')
-    .replace('象', '相')
-    .replace('仕', '士')
-    .replace('將', '将')
-    .replace('帥', '帅')
+  let displayName = pieceName
+  if (simplify) {
+    displayName = displayName
+      .replace('砲', '炮')
+      .replace('車', '车')
+      .replace('馬', '马')
+      .replace('象', '相')
+      .replace('仕', '士')
+      .replace('將', '将')
+      .replace('帥', '帅')
+  }
 
   return `${displayName}${cnNum(fromFile)}${direction}${dest}`
 }

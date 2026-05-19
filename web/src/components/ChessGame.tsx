@@ -91,7 +91,7 @@ export function ChessGame() {
             />
             {boardBlocked && (
               <div className="board-blocker" aria-hidden="true">
-                {aiThinking && <span className="board-blocker-text">AI 思考中…</span>}
+                {aiThinking && <span className="board-blocker-text">思考中…</span>}
               </div>
             )}
           </div>
@@ -111,9 +111,31 @@ export function ChessGame() {
 
           <section className="card">
             <h2>对局</h2>
-            <p className={`status${statusMessage.includes('失败') || statusMessage.includes('API') ? ' status-error' : ''}`}>
-              {statusMessage}
-            </p>
+            <div className="status-row">
+              <p className={`status${statusMessage.includes('失败') || statusMessage.includes('未找到') ? ' status-error' : ''}`}>
+                {statusMessage}
+              </p>
+              {lastAiResponse && (
+                <div className="debug-tooltip-container">
+                  <button 
+                    type="button" 
+                    className="btn-debug-icon"
+                    title="查看引擎原始响应"
+                    aria-label="查看调试信息"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="16" x2="12" y2="12"></line>
+                      <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                  </button>
+                  <div className="debug-tooltip">
+                    <div className="debug-tooltip-header">引擎原始响应</div>
+                    <pre className="debug-tooltip-content">{lastAiResponse}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
             {vsAi && activeSession.status === 'active' && !winner && (
               <p className="turn matchup">
                 你执 <strong>{peiceSideMap[playerSide]}</strong>
@@ -149,7 +171,7 @@ export function ChessGame() {
                 onChange={(e) => setVsAi(e.target.checked)}
                 disabled={activeSession.status === 'active' && !winner}
               />
-              <span>与大模型对弈</span>
+              <span>开启 AI 对弈</span>
             </label>
 
             <label className="field">
@@ -213,16 +235,16 @@ export function ChessGame() {
 
           {lastAiResponse && (
             <section className="card card-muted">
-              <h2>大模型最新回复</h2>
-              <p className="hint">AI 返回的原始 JSON 内容</p>
+              <h2>引擎分析</h2>
+              <p className="hint">决策引擎输出的评估信息</p>
               <pre className="pen-block">{lastAiResponse}</pre>
             </section>
           )}
 
           {lastAiPrompt && (
             <section className="card card-muted">
-              <h2>发送给大模型的提示词</h2>
-              <p className="hint">包含棋盘视觉与合法着法列表</p>
+              <h2>引擎调试信息</h2>
+              <p className="hint">发送给引擎的 FEN 局面和 UCI 着法</p>
               <pre className="prompt-block">{lastAiPrompt}</pre>
               <button
                 type="button"

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ZhChess, { type MoveCallback, type PieceSide } from 'zh-chess'
 import { ApiClientError } from '../llm/apiClient'
-import { buildFullMessages, requestAiMove } from '../llm/requestAiMove'
+import { requestAiMove } from '../llm/requestAiMove'
 import {
   createSession as makeSession,
   loadStore,
   saveStore,
 } from '../storage/sessionStore'
-import { hasApiKey } from '../storage/llmKeyStore'
 import { loadLlmSettings } from '../storage/llmSettingsStore'
 import type { GameSession } from '../types/gameSession'
 import { applySessionToBoard } from '../utils/applySessionToBoard'
@@ -123,7 +122,7 @@ export function useChessGame(): UseChessGameResult {
 
     try {
       if (import.meta.env.DEV) {
-        console.log('[象棋·AI] 开始请求大模型走棋', {
+        console.log('[象棋·AI] 开始请求引擎走棋', {
           aiSide: ai,
           sessionId: activeSessionIdRef.current,
         })
@@ -142,19 +141,12 @@ export function useChessGame(): UseChessGameResult {
           })
         }
 
-        // Build local prompt for immediate display (will be replaced by backend fullPrompt)
-        const msgs = buildFullMessages({
-          positionPen: latest.positionPen,
-          moveHistory: latest.moveHistory,
-          aiSide: ai,
-          lastError,
-        })
         setLastAiPrompt(
-          `[system]\n${msgs[0].content}\n\n[user]\n${msgs[1].content}`,
+          `请求引擎中... (局面: ${latest.positionPen})`,
         )
 
         try {
-          const { move, fullPrompt, rawContent } = await requestAiMove({
+          const { move, moveInfo, fullPrompt, rawContent } = await requestAiMove({
             positionPen: latest.positionPen,
             moveHistory: latest.moveHistory,
             aiSide: ai,
@@ -163,7 +155,7 @@ export function useChessGame(): UseChessGameResult {
 
           console.log('[象棋·AI] 收到后端返回', {
             move,
-            moveBytes: [...move].map(c => c.charCodeAt(0)),
+            moveInfo,
             aiSide: ai,
             runId,
           })
@@ -182,16 +174,35 @@ export function useChessGame(): UseChessGameResult {
             return
           }
 
-          console.log('[象棋·AI] 正在执行 moveStrAsync:', move)
-          const result = await game.moveStrAsync(move, ai, true)
-          console.log('[象棋·AI] moveStrAsync 结果:', result)
-          if (result.flag) {
-            if (import.meta.env.DEV) console.log('[象棋·AI] 落子成功')
-            setAiError(null)
-            return
+          if (moveInfo && moveInfo.fromX !== -1) {
+            console.log('[象棋·AI] 正在通过坐标执行走子:', moveInfo)
+            const piece = game.currentLivePieceList.find(
+              (p) => p.x === moveInfo.fromX && p.y === moveInfo.fromY,
+            )
+            if (piece) {
+              const toPoint = { x: moveInfo.toX, y: moveInfo.toY }
+              const result = await game.updateAsync(piece as any, toPoint as any, ai, true)
+              console.log('[象棋·AI] updateAsync 结果:', result)
+              if (result.flag) {
+                if (import.meta.env.DEV) console.log('[象棋·AI] 落子成功')
+                setAiError(null)
+                return
+              }
+              lastError = result.message
+            } else {
+              lastError = `未在坐标 (${moveInfo.fromX}, ${moveInfo.fromY}) 找到棋子`
+            }
+          } else {
+            console.log('[象棋·AI] 正在通过记谱执行走子:', move)
+            const result = await game.moveStrAsync(move, ai, true)
+            console.log('[象棋·AI] moveStrAsync 结果:', result)
+            if (result.flag) {
+              if (import.meta.env.DEV) console.log('[象棋·AI] 落子成功')
+              setAiError(null)
+              return
+            }
+            lastError = !result.flag && 'message' in result ? result.message : '非法着法或未找到棋子'
           }
-          // If moveStrAsync fails, it might be due to character mismatch or invalid notation
-          lastError = !result.flag && 'message' in result ? result.message : '非法着法或未找到棋子'
           console.log('[象棋·AI] 落子失败，lastError:', lastError, 'move:', move)
         } catch (err) {
           const msg =
@@ -199,7 +210,7 @@ export function useChessGame(): UseChessGameResult {
               ? err.message
               : err instanceof Error
                 ? err.message
-                : '请求大模型失败'
+                : '请求引擎失败'
           
           lastError = msg
           console.log(`[象棋·AI] 第 ${attempt + 1} 次尝试失败:`, msg)
@@ -217,14 +228,14 @@ export function useChessGame(): UseChessGameResult {
         }
       }
 
-      setAiError(lastError ?? '大模型连续返回非法着法')
+      setAiError(lastError ?? '引擎连续返回非法着法')
     } catch (err) {
       const msg =
         err instanceof ApiClientError
           ? err.message
           : err instanceof Error
             ? err.message
-            : '请求大模型失败'
+            : '请求引擎失败'
       setAiError(msg)
       // Show the backend-enhanced prompt even on error
       if (err instanceof ApiClientError && err.fullPrompt) {
@@ -361,13 +372,7 @@ export function useChessGame(): UseChessGameResult {
     if (!game || !canvas || !session) return
 
     if (!session.vsAi) {
-      setAiError('请先开启「与大模型对弈」')
-      return
-    }
-
-    const { providerId } = loadLlmSettings()
-    if (!hasApiKey(providerId)) {
-      setAiError('请先在「大模型」中配置 API Key')
+      setAiError('请先开启「AI 对弈」')
       return
     }
 

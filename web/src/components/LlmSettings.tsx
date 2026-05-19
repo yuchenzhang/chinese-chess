@@ -14,8 +14,8 @@ export function LlmSettings() {
 
   return (
     <section className="card">
-      <h2>大模型</h2>
-      <p className="hint">API Key 在后端服务器配置，前端仅选择模型和后端地址</p>
+      <h2>AI 引擎</h2>
+      <p className="hint">配置后端决策引擎地址和模型参数</p>
 
       <label className="field">
         <span>后端地址</span>
@@ -28,13 +28,13 @@ export function LlmSettings() {
           onKeyDown={(e) => {
             if (e.key === 'Enter') commitBackendUrl()
           }}
-          placeholder="http://127.0.0.1:3001"
+          placeholder="http://127.0.0.1:8000"
         />
-        <span className="field-hint">后端服务器 URL，默认 http://127.0.0.1:3001</span>
+        <span className="field-hint">决策引擎 URL，默认 http://127.0.0.1:8000</span>
       </label>
 
       <label className="field">
-        <span>提供商</span>
+        <span>引擎类型</span>
         <select
           value={settings.providerId}
           onChange={(e) => setProviderId(e.target.value)}
@@ -48,7 +48,7 @@ export function LlmSettings() {
       </label>
 
       <label className="field">
-        <span>模型</span>
+        <span>参数</span>
         <select
           value={settings.modelId}
           onChange={(e) => setModelId(e.target.value)}
