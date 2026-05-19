@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { GameSession } from '../types/gameSession'
-import { peiceSideMap } from 'zh-chess'
 
 interface SessionListProps {
   sessions: GameSession[]
@@ -12,8 +11,12 @@ interface SessionListProps {
 }
 
 function sessionSummary(session: GameSession): string {
+  if (!session.vsAi) return '未启用人机'
   if (session.status === 'setup') return '未开始'
-  if (session.winner) return `${peiceSideMap[session.winner]}胜`
+  if (session.winner) {
+    const label = session.winner === session.playerSide ? '你胜' : 'AI胜'
+    return label
+  }
   const n = session.moveHistory.length
   return n > 0 ? `${n} 手` : '进行中'
 }
@@ -85,6 +88,9 @@ export function SessionList({
                 >
                   <span className="session-title">{session.title}</span>
                   <span className="session-meta">
+                    {session.vsAi && (
+                      <span className="session-badge session-badge-ai">人机</span>
+                    )}
                     <span className="session-badge">{sessionSummary(session)}</span>
                     <time dateTime={new Date(session.updatedAt).toISOString()}>
                       {formatTime(session.updatedAt)}

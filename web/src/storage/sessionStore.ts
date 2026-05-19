@@ -16,7 +16,9 @@ export function defaultSessionTitle(date = new Date()): string {
   })}`
 }
 
-export function createSession(partial?: Partial<Pick<GameSession, 'title' | 'playerSide'>>): GameSession {
+export function createSession(
+  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi'>>,
+): GameSession {
   const now = Date.now()
   return {
     id: newId(),
@@ -29,6 +31,7 @@ export function createSession(partial?: Partial<Pick<GameSession, 'title' | 'pla
     winner: null,
     status: 'setup',
     currentTurn: null,
+    vsAi: partial?.vsAi ?? true,
   }
 }
 
@@ -53,6 +56,7 @@ export function loadStore(): SessionStore {
     parsed.sessions = parsed.sessions.map((s) => ({
       ...s,
       currentTurn: s.currentTurn ?? null,
+      vsAi: s.vsAi ?? true,
     }))
     return parsed
   } catch {
