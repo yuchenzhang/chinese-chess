@@ -13,9 +13,9 @@ export function LlmSettings() {
   } = useLlmSettings()
 
   return (
-    <section className="card">
-      <h2>AI 引擎</h2>
-      <p className="hint">配置后端决策引擎地址和模型参数</p>
+    <details className="card" open>
+      <summary style={{ cursor: 'pointer' }}><h2 style={{ display: 'inline', margin: 0 }}>AI 引擎</h2></summary>
+      <p className="hint" style={{ marginTop: '0.5rem' }}>配置后端决策引擎地址和模型参数</p>
 
       <label className="field">
         <span>后端地址</span>
@@ -60,6 +60,6 @@ export function LlmSettings() {
           ))}
         </select>
       </label>
-    </section>
+    </details>
   )
 }

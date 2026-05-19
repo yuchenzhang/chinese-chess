@@ -120,8 +120,6 @@ export function ChessGame() {
             onRename={renameSession}
           />
 
-          <LlmSettings />
-
           <section className="card">
             <h2>对局</h2>
             <div className="status-row">
@@ -267,18 +265,20 @@ export function ChessGame() {
             )}
           </section>
 
+          <LlmSettings />
+
           {lastAiResponse && (
-            <section className="card card-muted">
-              <h2>引擎分析</h2>
-              <p className="hint">决策引擎输出的评估信息</p>
+            <details className="card card-muted" open>
+              <summary style={{ cursor: 'pointer' }}><h2 style={{ display: 'inline', margin: 0 }}>引擎分析</h2></summary>
+              <p className="hint" style={{ marginTop: '0.5rem' }}>决策引擎输出的评估信息</p>
               <pre className="pen-block">{lastAiResponse}</pre>
-            </section>
+            </details>
           )}
 
           {lastAiPrompt && (
-            <section className="card card-muted">
-              <h2>引擎调试信息</h2>
-              <p className="hint">发送给引擎的 FEN 局面和 UCI 着法</p>
+            <details className="card card-muted" open>
+              <summary style={{ cursor: 'pointer' }}><h2 style={{ display: 'inline', margin: 0 }}>引擎调试信息</h2></summary>
+              <p className="hint" style={{ marginTop: '0.5rem' }}>发送给引擎的 FEN 局面和 UCI 着法</p>
               <pre className="prompt-block">{lastAiPrompt}</pre>
               <button
                 type="button"
@@ -288,7 +288,7 @@ export function ChessGame() {
               >
                 复制到剪贴板
               </button>
-            </section>
+            </details>
           )}
         </aside>
       </main>
