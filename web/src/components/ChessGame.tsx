@@ -69,6 +69,8 @@ export function ChessGame() {
       !winner &&
       (aiThinking || (currentTurn != null && currentTurn !== playerSide)))
 
+  const gameMode = vsAi ? '人机对弈' : '人人对弈'
+
   return (
     <div className="app">
       <header className="header">
@@ -81,7 +83,7 @@ export function ChessGame() {
             <p className="tagline">人机对弈 · AI 教练（建设中）</p>
           </div>
         </div>
-        <span className="phase-badge">人机对弈</span>
+        <span className="phase-badge">{gameMode}</span>
       </header>
 
       <main className="layout">
@@ -147,20 +149,25 @@ export function ChessGame() {
                 </div>
               )}
             </div>
-            {vsAi && activeSession.status === 'active' && !winner && (
+            {activeSession.status === 'active' && !winner && (
               <p className="turn matchup">
-                你执 <strong>{peiceSideMap[playerSide]}</strong>
-                {' · '}
-                AI 执 <strong>{peiceSideMap[aiSide]}</strong>
+                {vsAi ? (
+                  <>你执 <strong>{peiceSideMap[playerSide]}</strong>{' · '}AI 执 <strong>{peiceSideMap[aiSide]}</strong></>
+                ) : (
+                  <>模式：<strong>人人对弈</strong></>
+                )}
               </p>
             )}
-            {currentTurn && !winner && vsAi && (
+            {currentTurn && !winner && (
               <p className="turn">
                 当前行棋：
                 <strong>
-                  {currentTurn === playerSide
-                    ? `${peiceSideMap[currentTurn]}（你）`
-                    : `${peiceSideMap[currentTurn]}（AI）`}
+                  {vsAi
+                    ? (currentTurn === playerSide
+                      ? `${peiceSideMap[currentTurn]}（你）`
+                      : `${peiceSideMap[currentTurn]}（AI）`)
+                    : peiceSideMap[currentTurn]
+                  }
                 </strong>
               </p>
             )}
@@ -168,9 +175,12 @@ export function ChessGame() {
               <p className="winner">
                 胜方：
                 <strong>
-                  {winner === playerSide
-                    ? `${peiceSideMap[winner]}（你）`
-                    : `${peiceSideMap[winner]}（AI）`}
+                  {vsAi
+                    ? (winner === playerSide
+                      ? `${peiceSideMap[winner]}（你）`
+                      : `${peiceSideMap[winner]}（AI）`)
+                    : peiceSideMap[winner]
+                  }
                 </strong>
               </p>
             )}
@@ -205,7 +215,7 @@ export function ChessGame() {
                 type="button"
                 className="btn primary"
                 onClick={startNewGame}
-                disabled={!vsAi || aiThinking}
+                disabled={aiThinking}
               >
                 {startLabel}
               </button>
@@ -244,7 +254,10 @@ export function ChessGame() {
                   >
                     <span className="move-no">{i + 1}.</span>
                     <span className="move-side">
-                      {m.side === playerSide ? '你' : 'AI'}
+                      {vsAi
+                        ? (m.side === playerSide ? '你' : 'AI')
+                        : peiceSideMap[m.side]
+                      }
                     </span>
                     <span className="move-notation">{m.notation}</span>
                     {m.inCheck && <span className="check-tag">将</span>}
