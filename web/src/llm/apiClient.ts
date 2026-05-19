@@ -4,6 +4,7 @@
  */
 
 import { getBackendUrl } from '../storage/llmConnectionStore'
+import { normalizeFenForEngine, uciToNotation, type UciMoveInfo } from '../utils/uciToNotation'
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -22,6 +23,7 @@ export interface AiMoveRequest {
 
 export interface AiMoveResult {
   move: string
+  moveInfo?: UciMoveInfo
   rawContent?: string
   /** The full prompt that was actually sent to the LLM (enhanced by backend). */
   fullPrompt?: string
@@ -48,40 +50,58 @@ export class ApiClientError extends Error {
 export { getBackendUrl } from '../storage/llmConnectionStore'
 
 export async function fetchProviders(): Promise<LlmProviderInfo[]> {
-  const url = `${getBackendUrl()}/api/ai/providers`
-  const res = await fetch(url)
-  if (!res.ok) {
-    throw new ApiClientError(`Failed to fetch providers (${res.status})`, res.status)
-  }
-  return res.json()
+  // The rule-based engine doesn't have "providers", so we return a dummy or empty list.
+  // This keeps the UI working without major changes.
+  return [
+    {
+      id: 'rule-engine',
+      name: '规则引擎 (Python)',
+      models: [{ id: 'default', name: '默认搜索深度' }],
+      configured: true
+    }
+  ]
 }
 
 export async function requestAiMoveFromServer(
   input: AiMoveRequest,
 ): Promise<AiMoveResult> {
-  const url = `${getBackendUrl()}/api/ai/move`
+  if (!input.positionPen) {
+    throw new ApiClientError('缺少局面信息 (positionPen)')
+  }
+
+  const fen = normalizeFenForEngine(input.positionPen)
+  const url = `${getBackendUrl()}/api/move/best`
+
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: JSON.stringify({ fen }),
   })
 
   if (!res.ok) {
-    let message = `请求失败 (${res.status})`
+    let message = `引擎请求失败 (${res.status})`
     try {
-      const body = (await res.json()) as { error?: string }
-      if (body.error) message = body.error
+      const body = (await res.json()) as { detail?: string }
+      if (body.detail) message = body.detail
     } catch { /* ignore */ }
     throw new ApiClientError(message, res.status)
   }
 
-  const result: AiMoveResult = await res.json()
-  if (!result.move) {
-    const errorBody = result as { error?: string; fullPrompt?: string }
-    const errorMsg = errorBody.error ?? '后端返回的着法为空'
-    throw new ApiClientError(errorMsg, res.status, errorBody.fullPrompt)
+  const result = await res.json()
+  
+  if (!result.best_move) {
+    throw new ApiClientError('引擎未返回有效着法', res.status)
   }
-  return result
+
+  // Convert UCI to Chinese notation for the frontend zh-chess engine
+  const moveInfo = uciToNotation(input.positionPen, result.best_move)
+
+  return {
+    move: moveInfo.notation,
+    moveInfo: moveInfo,
+    rawContent: `最佳走法 (UCI): ${result.best_move}\n引擎评估: ${result.evaluation}\n深度: ${result.depth}\n耗时: ${result.think_time}s`,
+    fullPrompt: `FEN: ${fen}\nUCI: ${result.best_move}`
+  }
 }
 
 export async function pingServer(): Promise<{ status: string; timestamp?: string }> {
