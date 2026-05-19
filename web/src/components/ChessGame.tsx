@@ -1,8 +1,10 @@
 import { BOARD_SIZE, useChessGame } from '../hooks/useChessGame'
+import { useReplay } from '../hooks/useReplay'
 import { getAiSide } from '../utils/chessSides'
 import { peiceSideMap, type PieceSide } from 'zh-chess'
 import { LlmSettings } from './LlmSettings'
 import { SessionList } from './SessionList'
+import { ReplayControls } from './ReplayControls'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
   { value: 'RED', label: '红方（先手）' },
@@ -12,6 +14,7 @@ const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
 export function ChessGame() {
   const {
     canvasRef,
+    gameRef,
     sessions,
     activeSession,
     activeSessionId,
@@ -34,6 +37,8 @@ export function ChessGame() {
     deleteSession,
     renameSession,
   } = useChessGame()
+
+  const replay = useReplay(activeSession, gameRef, canvasRef)
 
   const canChangeSide = activeSession.status === 'setup' || !!winner
   const startLabel =
@@ -58,10 +63,11 @@ export function ChessGame() {
   }
 
   const boardBlocked =
-    vsAi &&
-    activeSession.status === 'active' &&
-    !winner &&
-    (aiThinking || (currentTurn != null && currentTurn !== playerSide))
+    replay.isReplaying ||
+    (vsAi &&
+      activeSession.status === 'active' &&
+      !winner &&
+      (aiThinking || (currentTurn != null && currentTurn !== playerSide)))
 
   return (
     <div className="app">
@@ -91,7 +97,12 @@ export function ChessGame() {
             />
             {boardBlocked && (
               <div className="board-blocker" aria-hidden="true">
-                {aiThinking && <span className="board-blocker-text">思考中…</span>}
+                {aiThinking && !replay.isReplaying && (
+                  <span className="board-blocker-text">思考中…</span>
+                )}
+                {replay.isReplaying && (
+                  <span className="board-blocker-text">回放中</span>
+                )}
               </div>
             )}
           </div>
@@ -215,12 +226,22 @@ export function ChessGame() {
 
           <section className="card">
             <h2>走子记录</h2>
+            <ReplayControls replay={replay} />
             {moveHistory.length === 0 ? (
               <p className="muted">开局后每步记谱将显示于此</p>
             ) : (
               <ol className="move-list">
                 {moveHistory.map((m, i) => (
-                  <li key={`${i}-${m.penCode}`}>
+                  <li
+                    key={`${i}-${m.penCode}`}
+                    className={replay.isReplaying && i + 1 === replay.currentPly ? 'move-active' : ''}
+                    onClick={() => {
+                      if (replay.isReplaying) {
+                        replay.goToPly(i + 1)
+                      }
+                    }}
+                    style={replay.isReplaying ? { cursor: 'pointer' } : undefined}
+                  >
                     <span className="move-no">{i + 1}.</span>
                     <span className="move-side">
                       {m.side === playerSide ? '你' : 'AI'}

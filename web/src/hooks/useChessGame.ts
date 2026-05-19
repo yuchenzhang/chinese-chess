@@ -22,6 +22,7 @@ const MAX_AI_RETRIES = 3
 
 export interface UseChessGameResult {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
+  gameRef: React.RefObject<ZhChess | null>
   sessions: GameSession[]
   activeSession: GameSession
   activeSessionId: string
@@ -565,6 +566,7 @@ export function useChessGame(): UseChessGameResult {
 
   return {
     canvasRef,
+    gameRef,
     sessions,
     activeSession,
     activeSessionId,
