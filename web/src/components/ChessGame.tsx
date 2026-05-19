@@ -5,6 +5,7 @@ import { peiceSideMap, type PieceSide } from 'zh-chess'
 import { LlmSettings } from './LlmSettings'
 import { SessionList } from './SessionList'
 import { ReplayControls } from './ReplayControls'
+import { CapturedPieces } from './CapturedPieces'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
   { value: 'RED', label: '红方（先手）' },
@@ -88,25 +89,28 @@ export function ChessGame() {
 
       <main className="layout">
         <section className="board-panel" aria-label="棋盘">
-          <div className="board-frame">
-            <canvas
-              ref={canvasRef}
-              width={BOARD_SIZE}
-              height={BOARD_SIZE}
-              className="board-canvas"
-              role="img"
-              aria-label="中国象棋棋盘，点击棋子走棋"
-            />
-            {boardBlocked && (
-              <div className="board-blocker" aria-hidden="true">
-                {aiThinking && !replay.isReplaying && (
-                  <span className="board-blocker-text">思考中…</span>
-                )}
-                {replay.isReplaying && (
-                  <span className="board-blocker-text">回放中</span>
-                )}
-              </div>
-            )}
+          <div className="board-area">
+            <div className="board-frame">
+              <canvas
+                ref={canvasRef}
+                width={BOARD_SIZE}
+                height={BOARD_SIZE}
+                className="board-canvas"
+                role="img"
+                aria-label="中国象棋棋盘，点击棋子走棋"
+              />
+              {boardBlocked && (
+                <div className="board-blocker" aria-hidden="true">
+                  {aiThinking && !replay.isReplaying && (
+                    <span className="board-blocker-text">思考中…</span>
+                  )}
+                  {replay.isReplaying && (
+                    <span className="board-blocker-text">回放中</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <CapturedPieces moveHistory={moveHistory} />
           </div>
         </section>
 
@@ -242,7 +246,7 @@ export function ChessGame() {
                 {moveHistory.map((m, i) => (
                   <li
                     key={`${i}-${m.penCode}`}
-                    className={replay.isReplaying && i + 1 === replay.currentPly ? 'move-active' : ''}
+                    className={`${replay.isReplaying && i + 1 === replay.currentPly ? 'move-active' : ''}${m.captured ? ' move-capture' : ''}${m.isNotable ? ' move-notable' : ''}`}
                     onClick={() => {
                       if (replay.isReplaying) {
                         replay.goToPly(i + 1)
@@ -258,7 +262,17 @@ export function ChessGame() {
                       }
                     </span>
                     <span className="move-notation">{m.notation}</span>
+                    {m.captured && (
+                      <span className="capture-tag" title={`吃${m.captured.displayName}`}>
+                        ×{m.captured.displayName}
+                      </span>
+                    )}
                     {m.inCheck && <span className="check-tag">将</span>}
+                    {m.isNotable && (
+                      <span className="notable-tag" title={m.notableReason}>
+                        ★{m.notableReason && <span className="notable-reason">{m.notableReason}</span>}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ol>

@@ -8,12 +8,13 @@ import {
   saveStore,
 } from '../storage/sessionStore'
 import { loadLlmSettings } from '../storage/llmSettingsStore'
-import type { GameSession } from '../types/gameSession'
+import type { CapturedPieceInfo, GameSession } from '../types/gameSession'
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
 import { statusMessageFor } from '../utils/gameSessionHelpers'
 import { getEngineTurn } from '../utils/zhChessEngine'
 import { moveToNotation } from '../utils/notation'
+import { getPieceAtPosition, isNotableMove } from '../utils/penParser'
 
 export const BOARD_SIZE = 720
 export const BOARD_PADDING = 40
@@ -431,19 +432,67 @@ export function useChessGame(): UseChessGameResult {
       // 使用 piece.side 确定走子方，比 getEngineTurn(game) 更可靠（避免 side 已提前切换）
       const mover = piece.side
       const nextTurn = oppositeSide(mover)
+      const isCapture = 'eat' in cp
+      const destination = isCapture ? cp.eat : cp.move
 
       // 计算中文记谱
       const notation = moveToNotation(
         { name: piece.name, x: piece.x, y: piece.y },
-        'move' in cp ? cp.move : cp.eat,
+        destination,
         mover,
       )
+
+      // Detect captured piece from previous position
+      let captured: CapturedPieceInfo | undefined
+      if (isCapture) {
+        const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+        const prevPen = session?.moveHistory.length
+          ? session.moveHistory[session.moveHistory.length - 1].penCode
+          : session?.positionPen
+        if (prevPen) {
+          const capturedInfo = getPieceAtPosition(prevPen, destination.x, destination.y)
+          if (capturedInfo) {
+            captured = {
+              name: capturedInfo.name,
+              side: capturedInfo.side,
+              displayName: capturedInfo.displayName,
+            }
+          }
+        }
+      }
+
+      // Detect notable moves (forks, capturing high-value pieces)
+      let isNotableMoveFlag = false
+      let notableReason: string | undefined
+      const capturedChar = captured
+        ? (captured.side === 'RED' ? captured.name : captured.name)
+        : null
+      const penCharForNotable = isCapture
+        ? (captured?.side === 'RED'
+          ? Object.entries({ R: '車', N: '馬', B: '相', A: '仕', K: '帅', C: '炮', P: '兵' }).find(([, v]) => v === captured?.name)?.[0]
+          : Object.entries({ r: '车', n: '马', b: '象', a: '士', k: '将', c: '砲', p: '卒' }).find(([, v]) => v === captured?.name)?.[0])
+        : null
+      const notableResult = isNotableMove(
+        penCode,
+        destination.x,
+        destination.y,
+        mover,
+        penCharForNotable ?? null,
+      )
+      if (notableResult.notable) {
+        isNotableMoveFlag = true
+        notableReason = notableResult.reason
+      }
 
       if (import.meta.env.DEV) {
         console.log('[象棋·DEBUG] onMove fired', {
           mover,
           nextTurn,
           notation,
+          isCapture,
+          captured,
+          isNotable: isNotableMoveFlag,
+          notableReason,
           penCodeFromCallback: penCode,
         })
       }
@@ -458,10 +507,18 @@ export function useChessGame(): UseChessGameResult {
             updatedAt: now,
             status: 'active' as const,
             currentTurn: nextTurn,
-            positionPen: penCode, // 直接信任引擎回调提供的 penCode
+            positionPen: penCode,
             moveHistory: [
               ...s.moveHistory,
-              { side: mover, penCode, notation, inCheck: enemyInCheck },
+              {
+                side: mover,
+                penCode,
+                notation,
+                inCheck: enemyInCheck,
+                captured,
+                isNotable: isNotableMoveFlag || undefined,
+                notableReason,
+              },
             ],
           }
         })
