@@ -1,29 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import ZhChess, { type MoveCallback, type PieceSide, peiceSideMap } from 'zh-chess'
+import ZhChess, { type MoveCallback, type PieceSide } from 'zh-chess'
+import { ApiClientError } from '../llm/apiClient'
+import { buildFullMessages, requestAiMove } from '../llm/requestAiMove'
 import {
   createSession as makeSession,
   loadStore,
   saveStore,
 } from '../storage/sessionStore'
-import type { GameSession, MoveRecord } from '../types/gameSession'
+import { hasApiKey } from '../storage/llmKeyStore'
+import { loadLlmSettings } from '../storage/llmSettingsStore'
+import type { GameSession } from '../types/gameSession'
 import { applySessionToBoard } from '../utils/applySessionToBoard'
+import { getAiSide, oppositeSide } from '../utils/chessSides'
+import { statusMessageFor } from '../utils/gameSessionHelpers'
+import { getEngineTurn } from '../utils/zhChessEngine'
+import { moveToNotation } from '../utils/notation'
 
-/** zh-chess 按正方形画布布局 */
 export const BOARD_SIZE = 720
 export const BOARD_PADDING = 40
 
-function statusMessageFor(session: GameSession): string {
-  if (session.status === 'setup') {
-    return '选择执子方后点击「开始对局」'
-  }
-  if (session.winner) {
-    return `${peiceSideMap[session.winner]}获胜！`
-  }
-  if (session.currentTurn) {
-    return `${peiceSideMap[session.currentTurn]}行棋 — 本地双人对弈`
-  }
-  return '对局进行中'
-}
+const MAX_AI_RETRIES = 3
 
 export interface UseChessGameResult {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -32,12 +28,20 @@ export interface UseChessGameResult {
   activeSessionId: string
   playerSide: PieceSide
   setPlayerSide: (side: PieceSide) => void
+  vsAi: boolean
+  setVsAi: (vsAi: boolean) => void
   currentTurn: PieceSide | null
   positionPen: string
-  moveHistory: MoveRecord[]
+  moveHistory: GameSession['moveHistory']
   winner: PieceSide | null
   statusMessage: string
+  aiThinking: boolean
+  aiError: string | null
+  lastAiPrompt: string | null
+  lastAiResponse: string | null
+  canPlayerMove: boolean
   startNewGame: () => void
+  triggerAiMove: () => void
   flipBoard: () => void
   createSession: () => void
   switchSession: (id: string) => void
@@ -51,11 +55,20 @@ export function useChessGame(): UseChessGameResult {
   const [activeSessionId, setActiveSessionId] = useState(
     initialStore.current.activeSessionId ?? initialStore.current.sessions[0].id,
   )
+  const [aiThinking, setAiThinking] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [lastAiPrompt, setLastAiPrompt] = useState<string | null>(null)
+  const [lastAiResponse, setLastAiResponse] = useState<string | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<ZhChess | null>(null)
   const activeSessionIdRef = useRef(activeSessionId)
   const sessionsRef = useRef(sessions)
+  const aiRunIdRef = useRef(0)
+  const aiThinkingRef = useRef(false)
+  const runAiTurnRef = useRef<() => Promise<void>>(async () => {})
+
+  aiThinkingRef.current = aiThinking
 
   activeSessionIdRef.current = activeSessionId
   sessionsRef.current = sessions
@@ -69,21 +82,18 @@ export function useChessGame(): UseChessGameResult {
     saveStore({ version: 1, activeSessionId: nextActiveId, sessions: nextSessions })
   }, [])
 
-  const patchActiveSession = useCallback(
-    (patch: Partial<GameSession>) => {
-      const id = activeSessionIdRef.current
-      const now = Date.now()
-      setSessions((prev) => {
-        const next = prev.map((s) =>
-          s.id === id ? { ...s, ...patch, updatedAt: now } : s,
-        )
-        sessionsRef.current = next
-        saveStore({ version: 1, activeSessionId: id, sessions: next })
-        return next
-      })
-    },
-    [],
-  )
+  const patchActiveSession = useCallback((patch: Partial<GameSession>) => {
+    const id = activeSessionIdRef.current
+    const now = Date.now()
+    setSessions((prev) => {
+      const next = prev.map((s) =>
+        s.id === id ? { ...s, ...patch, updatedAt: now } : s,
+      )
+      sessionsRef.current = next
+      saveStore({ version: 1, activeSessionId: id, sessions: next })
+      return next
+    })
+  }, [])
 
   const loadSessionOnBoard = useCallback((session: GameSession) => {
     const game = gameRef.current
@@ -94,9 +104,167 @@ export function useChessGame(): UseChessGameResult {
     applySessionToBoard(game, session, ctx)
   }, [])
 
+  const runAiTurn = useCallback(async () => {
+    const game = gameRef.current
+    const canvas = canvasRef.current
+    if (!game || !canvas) return
+
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session?.vsAi || session.status !== 'active' || session.winner) return
+
+    const ai = getAiSide(session.playerSide)
+    if (getEngineTurn(game) !== ai) return
+
+    const runId = ++aiRunIdRef.current
+    setAiThinking(true)
+    setAiError(null)
+
+    let lastError: string | undefined
+
+    try {
+      if (import.meta.env.DEV) {
+        console.log('[象棋·AI] 开始请求大模型走棋', {
+          aiSide: ai,
+          sessionId: activeSessionIdRef.current,
+        })
+      }
+
+      for (let attempt = 0; attempt < MAX_AI_RETRIES; attempt++) {
+        if (runId !== aiRunIdRef.current) return
+
+        const latest = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+        if (!latest) return
+
+        if (import.meta.env.DEV) {
+          console.log(`[象棋·AI] 第 ${attempt + 1} 次尝试`, {
+            positionPen: latest.positionPen,
+            moves: latest.moveHistory.length,
+          })
+        }
+
+        // Build local prompt for immediate display (will be replaced by backend fullPrompt)
+        const msgs = buildFullMessages({
+          positionPen: latest.positionPen,
+          moveHistory: latest.moveHistory,
+          aiSide: ai,
+          lastError,
+        })
+        setLastAiPrompt(
+          `[system]\n${msgs[0].content}\n\n[user]\n${msgs[1].content}`,
+        )
+
+        try {
+          const { move, fullPrompt, rawContent } = await requestAiMove({
+            positionPen: latest.positionPen,
+            moveHistory: latest.moveHistory,
+            aiSide: ai,
+            lastError,
+          })
+
+          console.log('[象棋·AI] 收到后端返回', {
+            move,
+            moveBytes: [...move].map(c => c.charCodeAt(0)),
+            aiSide: ai,
+            runId,
+          })
+
+          if (rawContent) {
+            setLastAiResponse(rawContent)
+          }
+
+          // Replace locally-built prompt with backend-returned full prompt
+          if (fullPrompt) {
+            setLastAiPrompt(fullPrompt)
+          }
+
+          if (runId !== aiRunIdRef.current) {
+            console.log('[象棋·AI] 请求已过期，忽略')
+            return
+          }
+
+          console.log('[象棋·AI] 正在执行 moveStrAsync:', move)
+          const result = await game.moveStrAsync(move, ai, true)
+          console.log('[象棋·AI] moveStrAsync 结果:', result)
+          if (result.flag) {
+            if (import.meta.env.DEV) console.log('[象棋·AI] 落子成功')
+            setAiError(null)
+            return
+          }
+          // If moveStrAsync fails, it might be due to character mismatch or invalid notation
+          lastError = !result.flag && 'message' in result ? result.message : '非法着法或未找到棋子'
+          console.log('[象棋·AI] 落子失败，lastError:', lastError, 'move:', move)
+        } catch (err) {
+          const msg =
+            err instanceof ApiClientError
+              ? err.message
+              : err instanceof Error
+                ? err.message
+                : '请求大模型失败'
+          
+          lastError = msg
+          console.log(`[象棋·AI] 第 ${attempt + 1} 次尝试失败:`, msg)
+
+          // Show the backend-enhanced prompt even on error
+          if (err instanceof ApiClientError && err.fullPrompt) {
+            setLastAiPrompt(err.fullPrompt)
+          }
+          
+          // If it's a non-retriable error (like 401/404), we might want to break,
+          // but for now we'll just retry until limit.
+          if (attempt === MAX_AI_RETRIES - 1) {
+            throw err
+          }
+        }
+      }
+
+      setAiError(lastError ?? '大模型连续返回非法着法')
+    } catch (err) {
+      const msg =
+        err instanceof ApiClientError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : '请求大模型失败'
+      setAiError(msg)
+      // Show the backend-enhanced prompt even on error
+      if (err instanceof ApiClientError && err.fullPrompt) {
+        setLastAiPrompt(err.fullPrompt)
+      }
+    } finally {
+      if (runId === aiRunIdRef.current) {
+        setAiThinking(false)
+      }
+    }
+  }, [])
+
+  runAiTurnRef.current = runAiTurn
+
+  const maybeRequestAi = useCallback((turn: PieceSide | null) => {
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session?.vsAi || !turn || session.winner) return
+    if (turn === getAiSide(session.playerSide)) {
+      setAiThinking(true)
+      void runAiTurnRef.current()
+    }
+  }, [])
+
+  const triggerAiMove = useCallback(() => {
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session?.vsAi || session.status !== 'active' || session.winner) return
+    
+    // 如果明确是玩家回合，则不触发 AI；否则（包括 null 情况）允许触发
+    if (session.currentTurn === session.playerSide) return
+
+    setAiThinking(true)
+    void runAiTurnRef.current()
+  }, [])
+
   const switchSession = useCallback(
     (id: string) => {
       if (id === activeSessionIdRef.current) return
+      aiRunIdRef.current++
+      setAiThinking(false)
+      setAiError(null)
       const session = sessionsRef.current.find((s) => s.id === id)
       if (!session) return
       persist(sessionsRef.current, id)
@@ -106,7 +274,10 @@ export function useChessGame(): UseChessGameResult {
   )
 
   const createSessionHandler = useCallback(() => {
-    const session = makeSession()
+    aiRunIdRef.current++
+    setAiThinking(false)
+    setAiError(null)
+    const session = makeSession({ vsAi: true })
     const next = [session, ...sessionsRef.current]
     persist(next, session.id)
     loadSessionOnBoard(session)
@@ -114,9 +285,12 @@ export function useChessGame(): UseChessGameResult {
 
   const deleteSession = useCallback(
     (id: string) => {
+      aiRunIdRef.current++
+      setAiThinking(false)
+      setAiError(null)
       let next = sessionsRef.current.filter((s) => s.id !== id)
       if (next.length === 0) {
-        next = [makeSession()]
+        next = [makeSession({ vsAi: true })]
       }
       const nextActive =
         activeSessionIdRef.current === id ? next[0].id : activeSessionIdRef.current
@@ -149,25 +323,76 @@ export function useChessGame(): UseChessGameResult {
     [patchActiveSession],
   )
 
+  const setVsAi = useCallback(
+    (vsAi: boolean) => {
+      aiRunIdRef.current++
+      setAiThinking(false)
+      setAiError(null)
+      const id = activeSessionIdRef.current
+      const now = Date.now()
+      setSessions((prev) => {
+        const next = prev.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                vsAi,
+                updatedAt: now,
+                status: 'setup' as const,
+                winner: null,
+                moveHistory: [],
+                currentTurn: null,
+              }
+            : s,
+        )
+        sessionsRef.current = next
+        saveStore({ version: 1, activeSessionId: id, sessions: next })
+        const session = next.find((s) => s.id === id)
+        if (session) queueMicrotask(() => loadSessionOnBoard(session))
+        return next
+      })
+    },
+    [loadSessionOnBoard],
+  )
+
   const startNewGame = useCallback(() => {
     const game = gameRef.current
     const canvas = canvasRef.current
-    if (!game || !canvas) return
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!game || !canvas || !session) return
 
-    const side = activeSession.playerSide
+    if (!session.vsAi) {
+      setAiError('请先开启「与大模型对弈」')
+      return
+    }
+
+    const { providerId } = loadLlmSettings()
+    if (!hasApiKey(providerId)) {
+      setAiError('请先在「大模型」中配置 API Key')
+      return
+    }
+
+    setAiError(null)
+    aiRunIdRef.current++
+
+    const side = session.playerSide
     game.gameStart(side)
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     game.draw(ctx)
 
+    const firstTurn = getEngineTurn(game)
     patchActiveSession({
       status: 'active',
       winner: null,
       moveHistory: [],
-      currentTurn: side,
-      positionPen: game.getCurrentPenCode(side),
+      currentTurn: firstTurn,
+      positionPen: game.getCurrentPenCode(firstTurn),
     })
-  }, [activeSession.playerSide, patchActiveSession])
+
+    if (firstTurn === getAiSide(side)) {
+      queueMicrotask(() => void runAiTurnRef.current())
+    }
+  }, [patchActiveSession])
 
   const flipBoard = useCallback(() => {
     const game = gameRef.current
@@ -201,11 +426,26 @@ export function useChessGame(): UseChessGameResult {
 
     gameRef.current = game
 
-    const onMove: MoveCallback = (_piece, _cp, enemyInCheck, penCode) => {
-      const turn = game.currentGameSide
-      if (!turn) return
+    const onMove: MoveCallback = (piece, cp, enemyInCheck, penCode) => {
+      // 使用 piece.side 确定走子方，比 getEngineTurn(game) 更可靠（避免 side 已提前切换）
+      const mover = piece.side
+      const nextTurn = oppositeSide(mover)
 
-      const mover: PieceSide = turn === 'RED' ? 'BLACK' : 'RED'
+      // 计算中文记谱
+      const notation = moveToNotation(
+        { name: piece.name, x: piece.x, y: piece.y },
+        'move' in cp ? cp.move : cp.eat,
+        mover,
+      )
+
+      if (import.meta.env.DEV) {
+        console.log('[象棋·DEBUG] onMove fired', {
+          mover,
+          nextTurn,
+          notation,
+          penCodeFromCallback: penCode,
+        })
+      }
       const id = activeSessionIdRef.current
       const now = Date.now()
 
@@ -216,25 +456,25 @@ export function useChessGame(): UseChessGameResult {
             ...s,
             updatedAt: now,
             status: 'active' as const,
-            currentTurn: turn,
-            positionPen: game.getCurrentPenCode(turn),
+            currentTurn: nextTurn,
+            positionPen: penCode, // 直接信任引擎回调提供的 penCode
             moveHistory: [
               ...s.moveHistory,
-              { side: mover, penCode, inCheck: enemyInCheck },
+              { side: mover, penCode, notation, inCheck: enemyInCheck },
             ],
           }
         })
         sessionsRef.current = next
-        saveStore({
-          version: 1,
-          activeSessionId: id,
-          sessions: next,
-        })
+        saveStore({ version: 1, activeSessionId: id, sessions: next })
         return next
       })
+
+      queueMicrotask(() => maybeRequestAi(nextTurn))
     }
 
     const onOver = (winnerSide: PieceSide) => {
+      aiRunIdRef.current++
+      setAiThinking(false)
       const id = activeSessionIdRef.current
       const now = Date.now()
 
@@ -262,12 +502,24 @@ export function useChessGame(): UseChessGameResult {
     const initial = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
     if (initial) {
       applySessionToBoard(game, initial, ctx)
+      // 如果已在对局中但缺少回合信息，尝试从引擎恢复
+      if (initial.status === 'active' && !initial.winner && !initial.currentTurn) {
+        const engineTurn = getEngineTurn(game)
+        console.log('[象棋·DEBUG] 恢复丢失的回合信息:', engineTurn)
+        patchActiveSession({ currentTurn: engineTurn })
+      }
     } else {
       game.draw(ctx)
     }
 
     const handleClick = (e: MouseEvent) => {
       if (game.gameOver()) return
+
+      const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+      if (!session?.vsAi) return
+      if (aiThinkingRef.current) return
+      if (getEngineTurn(game) !== session.playerSide) return
+
       game.listenClickAsync(e)
     }
 
@@ -278,11 +530,33 @@ export function useChessGame(): UseChessGameResult {
       game.removeEvent('move', onMove)
       game.removeEvent('over', onOver)
     }
-  }, [])
+  }, [maybeRequestAi])
 
   useEffect(() => {
+    aiRunIdRef.current++
+    setAiThinking(false)
     loadSessionOnBoard(activeSession)
-  }, [activeSessionId])
+    
+    // If it's AI turn on load/switch, trigger it
+    if (activeSession.vsAi && activeSession.status === 'active' && !activeSession.winner) {
+      const ai = getAiSide(activeSession.playerSide)
+      if (activeSession.currentTurn === ai) {
+        setAiThinking(true)
+        void runAiTurnRef.current()
+      }
+    }
+  }, [activeSessionId, loadSessionOnBoard])
+
+  const canPlayerMove =
+    activeSession.vsAi &&
+    activeSession.status === 'active' &&
+    !activeSession.winner &&
+    !aiThinking &&
+    activeSession.currentTurn === activeSession.playerSide
+
+  const displayStatus = aiError
+    ? aiError
+    : statusMessageFor(activeSession, aiThinking)
 
   return {
     canvasRef,
@@ -291,12 +565,20 @@ export function useChessGame(): UseChessGameResult {
     activeSessionId,
     playerSide: activeSession.playerSide,
     setPlayerSide,
+    vsAi: activeSession.vsAi,
+    setVsAi,
     currentTurn: activeSession.currentTurn,
     positionPen: activeSession.positionPen,
     moveHistory: activeSession.moveHistory,
     winner: activeSession.winner,
-    statusMessage: statusMessageFor(activeSession),
+    statusMessage: displayStatus,
+    aiThinking,
+    aiError,
+    lastAiPrompt,
+    lastAiResponse,
+    canPlayerMove,
     startNewGame,
+    triggerAiMove,
     flipBoard,
     createSession: createSessionHandler,
     switchSession,
