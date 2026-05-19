@@ -372,11 +372,6 @@ export function useChessGame(): UseChessGameResult {
     const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
     if (!game || !canvas || !session) return
 
-    if (!session.vsAi) {
-      setAiError('请先开启「AI 对弈」')
-      return
-    }
-
     setAiError(null)
     aiRunIdRef.current++
 
@@ -395,7 +390,7 @@ export function useChessGame(): UseChessGameResult {
       positionPen: game.getCurrentPenCode(firstTurn),
     })
 
-    if (firstTurn === getAiSide(side)) {
+    if (session.vsAi && firstTurn === getAiSide(side)) {
       queueMicrotask(() => void runAiTurnRef.current())
     }
   }, [patchActiveSession])
@@ -522,9 +517,18 @@ export function useChessGame(): UseChessGameResult {
       if (game.gameOver()) return
 
       const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
-      if (!session?.vsAi) return
+      if (!session || session.status !== 'active') return
       if (aiThinkingRef.current) return
-      if (getEngineTurn(game) !== session.playerSide) return
+
+      if (session.vsAi) {
+        if (getEngineTurn(game) !== session.playerSide) return
+      } else {
+        const internal = game as unknown as { gameSide: PieceSide | null }
+        const engineTurn = getEngineTurn(game)
+        if (internal.gameSide !== engineTurn) {
+          internal.gameSide = engineTurn
+        }
+      }
 
       game.listenClickAsync(e)
     }
