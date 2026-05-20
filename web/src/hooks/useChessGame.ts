@@ -48,6 +48,7 @@ export interface UseChessGameResult {
   switchSession: (id: string) => void
   deleteSession: (id: string) => void
   renameSession: (id: string, title: string) => void
+  patchActiveSession: (patch: Partial<GameSession>) => void
 }
 
 export function useChessGame(): UseChessGameResult {
@@ -649,5 +650,6 @@ export function useChessGame(): UseChessGameResult {
     switchSession,
     deleteSession,
     renameSession,
+    patchActiveSession,
   }
 }

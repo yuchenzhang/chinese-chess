@@ -26,6 +26,29 @@ export interface MoveRecord {
   notableReason?: string
 }
 
+export interface LlmAnnotation {
+  ply: number
+  side: 'red' | 'black'
+  move: string
+  importance: 'low' | 'medium' | 'high' | 'critical'
+  quality: '好棋' | '妙手' | '正常' | '疑问手' | '失误' | '严重失误'
+  tags: string[]
+  comment: string
+}
+
+export interface LlmAnalysisSummary {
+  overall: string
+  main_problems: string[]
+  training_focus: string[]
+}
+
+export interface LlmAnalysis {
+  game_id: string
+  review_type: string
+  annotations: LlmAnnotation[]
+  summary: LlmAnalysisSummary
+}
+
 export interface GameSession {
   id: string
   title: string
@@ -41,6 +64,8 @@ export interface GameSession {
   currentTurn: PieceSide | null
   /** 是否与本盘对大模型（人机对弈） */
   vsAi: boolean
+  /** LLM analysis result */
+  llmAnalysis?: LlmAnalysis
 }
 
 export interface SessionStore {

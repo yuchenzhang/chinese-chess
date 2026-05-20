@@ -37,6 +37,7 @@ export function ChessGame() {
     switchSession,
     deleteSession,
     renameSession,
+    patchActiveSession,
   } = useChessGame()
 
   const replay = useReplay(activeSession, gameRef, canvasRef)
@@ -104,11 +105,65 @@ export function ChessGame() {
                   {aiThinking && !replay.isReplaying && (
                     <span className="board-blocker-text">思考中…</span>
                   )}
-                  {replay.isReplaying && (
+                  {replay.isReplaying && !activeSession.llmAnalysis && (
                     <span className="board-blocker-text">回放中</span>
                   )}
                 </div>
               )}
+              {replay.isReplaying && activeSession.llmAnalysis && (() => {
+                const isSummary = replay.currentPly === 0;
+                const annotation = activeSession.llmAnalysis.annotations.find(a => a.ply === replay.currentPly);
+                
+                if (!isSummary && !annotation) return null;
+                
+                return (
+                  <div className="llm-board-overlay" style={{
+                    position: 'absolute',
+                    top: '10%',
+                    left: '5%',
+                    right: '5%',
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    backdropFilter: 'blur(4px)',
+                    WebkitBackdropFilter: 'blur(4px)',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    border: '1px solid var(--border)',
+                    zIndex: 30,
+                    pointerEvents: 'none',
+                    lineHeight: 1.5
+                  }}>
+                    {isSummary ? (
+                      <div>
+                        <h3 style={{ marginTop: 0, marginBottom: '8px', fontSize: '1.1rem', color: 'var(--accent)' }}>AI 教练总结</h3>
+                        <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text)' }}>{activeSession.llmAnalysis.summary.overall}</p>
+                        {activeSession.llmAnalysis.summary.main_problems?.length > 0 && (
+                          <div style={{ marginTop: '8px' }}>
+                            <strong style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>主要问题：</strong>
+                            <ul style={{ margin: '4px 0 0', paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--text)' }}>
+                              {activeSession.llmAnalysis.summary.main_problems.map((p, idx) => <li key={idx} style={{ marginBottom: '4px' }}>{p}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '0.85rem', padding: '2px 8px', background: 'var(--accent)', color: '#fff', borderRadius: '12px', fontWeight: 'bold', lineHeight: 1.2 }}>
+                            {annotation!.quality}
+                          </span>
+                          {annotation!.tags?.map(tag => (
+                            <span key={tag} style={{ fontSize: '0.8rem', padding: '2px 8px', background: 'var(--surface)', color: 'var(--text-muted)', borderRadius: '12px', border: '1px solid var(--border)', lineHeight: 1.2 }}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                        <p style={{ margin: 0, fontSize: '1rem', color: 'var(--text)' }}>{annotation!.comment}</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
             <CapturedPieces
               moveHistory={moveHistory}
@@ -241,7 +296,11 @@ export function ChessGame() {
 
           <section className="card">
             <h2>走子记录</h2>
-            <ReplayControls replay={replay} session={activeSession} />
+            <ReplayControls 
+              replay={replay} 
+              session={activeSession} 
+              onImportAnalysis={(analysis) => patchActiveSession({ llmAnalysis: analysis })} 
+            />
             {moveHistory.length === 0 ? (
               <p className="muted">开局后每步记谱将显示于此</p>
             ) : (
