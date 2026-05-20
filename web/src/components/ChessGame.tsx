@@ -110,7 +110,10 @@ export function ChessGame() {
                 </div>
               )}
             </div>
-            <CapturedPieces moveHistory={moveHistory} />
+            <CapturedPieces
+              moveHistory={moveHistory}
+              maxPly={replay.isReplaying ? replay.currentPly : undefined}
+            />
           </div>
         </section>
 
@@ -240,7 +243,7 @@ export function ChessGame() {
 
           <section className="card">
             <h2>走子记录</h2>
-            <ReplayControls replay={replay} />
+            <ReplayControls replay={replay} session={activeSession} />
             {moveHistory.length === 0 ? (
               <p className="muted">开局后每步记谱将显示于此</p>
             ) : (

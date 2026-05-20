@@ -2,6 +2,8 @@ import type { MoveRecord, CapturedPieceInfo } from '../types/gameSession'
 
 interface CapturedPiecesProps {
   moveHistory: MoveRecord[]
+  /** When in replay mode, only show captures up to this ply (1-indexed). undefined = show all. */
+  maxPly?: number
 }
 
 function groupCaptured(captures: CapturedPieceInfo[]): Map<string, { piece: CapturedPieceInfo; count: number }> {
@@ -18,11 +20,13 @@ function groupCaptured(captures: CapturedPieceInfo[]): Map<string, { piece: Capt
   return groups
 }
 
-export function CapturedPieces({ moveHistory }: CapturedPiecesProps) {
+export function CapturedPieces({ moveHistory, maxPly }: CapturedPiecesProps) {
   const redCaptured: CapturedPieceInfo[] = []
   const blackCaptured: CapturedPieceInfo[] = []
 
-  for (const move of moveHistory) {
+  const limit = maxPly !== undefined ? maxPly : moveHistory.length
+  for (let i = 0; i < limit && i < moveHistory.length; i++) {
+    const move = moveHistory[i]
     if (move.captured) {
       if (move.captured.side === 'RED') {
         redCaptured.push(move.captured)

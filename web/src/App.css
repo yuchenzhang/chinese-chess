@@ -796,6 +796,21 @@
   color: #fff;
 }
 
+.replay-export {
+  display: flex;
+  gap: 0.35rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.btn-export {
+  flex: 1;
+}
+
+.replay-entry-row {
+  margin-bottom: 0.75rem;
+}
+
 .move-list li.move-active {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 4px;
