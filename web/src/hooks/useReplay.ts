@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ZhChess, { initBoardPen, type PieceSide } from 'zh-chess'
-import type { GameSession, MoveRecord } from '../types/gameSession'
+import type { GameSession } from '../types/gameSession'
 
 type InternalGameState = 'INIT' | 'START' | 'OVER' | 'MOVE'
 type ZhChessInternals = {

@@ -7,7 +7,7 @@ import {
   loadStore,
   saveStore,
 } from '../storage/sessionStore'
-import { loadLlmSettings } from '../storage/llmSettingsStore'
+
 import type { CapturedPieceInfo, GameSession } from '../types/gameSession'
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
@@ -190,7 +190,7 @@ export function useChessGame(): UseChessGameResult {
                 setAiError(null)
                 return
               }
-              lastError = result.message
+              lastError = (result as any).message || '未知更新失败'
             } else {
               lastError = `未在坐标 (${moveInfo.fromX}, ${moveInfo.fromY}) 找到棋子`
             }
@@ -464,9 +464,6 @@ export function useChessGame(): UseChessGameResult {
       // Detect notable moves (forks, capturing high-value pieces)
       let isNotableMoveFlag = false
       let notableReason: string | undefined
-      const capturedChar = captured
-        ? (captured.side === 'RED' ? captured.name : captured.name)
-        : null
       const penCharForNotable = isCapture
         ? (captured?.side === 'RED'
           ? Object.entries({ R: '車', N: '馬', B: '相', A: '仕', K: '帅', C: '炮', P: '兵' }).find(([, v]) => v === captured?.name)?.[0]
