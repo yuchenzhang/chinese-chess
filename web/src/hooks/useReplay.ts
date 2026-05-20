@@ -85,14 +85,19 @@ export function useReplay(
   }, [session, gameRef, canvasRef, totalPlies])
 
   const enterReplay = useCallback(() => {
-    if (totalPlies === 0) return
+    console.log('[象棋·回放] 尝试进入回放模式', { totalPlies, sessionId: session.id })
+    if (totalPlies === 0) {
+      console.warn('[象棋·回放] 进入失败：总步数为 0')
+      return
+    }
     setIsReplaying(true)
     setCurrentPly(0)
     setIsPlaying(false)
     renderPly(0)
-  }, [totalPlies, renderPly])
+  }, [totalPlies, renderPly, session.id])
 
   const exitReplay = useCallback(() => {
+    console.log('[象棋·回放] 退出回放模式')
     setIsReplaying(false)
     setIsPlaying(false)
     setCurrentPly(0)

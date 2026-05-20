@@ -66,13 +66,14 @@ export function ReplayControls({ replay, session, onImportAnalysis }: ReplayCont
 
   if (!isReplaying) {
     return (
-      <div className="replay-entry-row">
+      <div className="replay-entry-row" data-tour="replay-entry">
         <button
           type="button"
           className="btn btn-replay-enter"
           onClick={enterReplay}
           disabled={totalPlies === 0}
           title={totalPlies === 0 ? '当前对局暂无走子记录' : '回放本局棋谱'}
+          data-tour="enter-replay-btn"
         >
           ▶ 回放棋局
         </button>
@@ -81,7 +82,7 @@ export function ReplayControls({ replay, session, onImportAnalysis }: ReplayCont
   }
 
   return (
-    <div className="replay-panel">
+    <div className="replay-panel" data-tour="replay-panel">
       <div className="replay-header">
         <span className="replay-badge">回放模式</span>
         <button
@@ -168,7 +169,7 @@ export function ReplayControls({ replay, session, onImportAnalysis }: ReplayCont
         ))}
       </div>
 
-      <div className="replay-export">
+      <div className="replay-export" data-tour="export-import-actions">
         <button
           type="button"
           className="btn btn-sm btn-export"
@@ -182,6 +183,7 @@ export function ReplayControls({ replay, session, onImportAnalysis }: ReplayCont
           className="btn btn-sm"
           onClick={() => setShowImport(!showImport)}
           title="粘贴大模型返回的 JSON 分析结果"
+          data-tour="import-analysis-btn"
         >
           📥 导入 AI 分析
         </button>

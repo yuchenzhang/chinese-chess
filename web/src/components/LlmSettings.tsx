@@ -13,7 +13,7 @@ export function LlmSettings() {
   } = useLlmSettings()
 
   return (
-    <details className="card" open>
+    <details className="card" open data-tour="ai-settings">
       <summary style={{ cursor: 'pointer' }}><h2 style={{ display: 'inline', margin: 0 }}>AI 引擎</h2></summary>
       <p className="hint" style={{ marginTop: '0.5rem' }}>配置后端决策引擎地址和模型参数</p>
 

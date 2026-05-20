@@ -82,6 +82,7 @@ export function useChessGame(): UseChessGameResult {
   const persist = useCallback((nextSessions: GameSession[], nextActiveId: string) => {
     setSessions(nextSessions)
     setActiveSessionId(nextActiveId)
+    sessionsRef.current = nextSessions
     saveStore({ version: 1, activeSessionId: nextActiveId, sessions: nextSessions })
   }, [])
 
@@ -641,6 +642,41 @@ export function useChessGame(): UseChessGameResult {
       }
     }
   }, [activeSessionId, loadSessionOnBoard])
+
+  useEffect(() => {
+    const handleStartTour = () => {
+      // Find or create demo session
+      let demoSession = sessionsRef.current.find(s => s.title === '演示：经典开局复盘');
+      
+      if (!demoSession) {
+        console.log('[象棋·演示] 正在创建并注入演示数据...');
+        demoSession = makeSession({
+          vsAi: true,
+          title: '演示：经典开局复盘',
+        });
+        
+        demoSession.moveHistory = [
+          { side: 'RED', notation: '炮二平五', penCode: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C2C1/9/RNBAKABNR b - - 0 1', inCheck: false },
+          { side: 'BLACK', notation: '马8进7', penCode: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C2C2C1/9/RNBAKABNR r - - 0 2', inCheck: false }
+        ];
+        demoSession.status = 'active';
+        demoSession.currentTurn = 'RED';
+        demoSession.updatedAt = Date.now();
+        
+        const next = [demoSession, ...sessionsRef.current];
+        persist(next, demoSession.id);
+      } else {
+        console.log('[象棋·演示] 切换到已有的演示数据');
+        switchSession(demoSession.id);
+      }
+
+      // Force board update
+      const target = demoSession;
+      setTimeout(() => loadSessionOnBoard(target), 50);
+    };
+    window.addEventListener('start-tour', handleStartTour);
+    return () => window.removeEventListener('start-tour', handleStartTour);
+  }, [persist, loadSessionOnBoard]);
 
   const canPlayerMove =
     activeSession.vsAi &&

@@ -77,7 +77,7 @@ export function ChessGame() {
   return (
     <div className="app">
       <header className="header">
-        <div className="brand">
+        <div className="brand" data-tour="brand">
           <span className="brand-mark" aria-hidden>
             棋
           </span>
@@ -86,13 +86,23 @@ export function ChessGame() {
             <p className="tagline">人机对弈 · AI 教练</p>
           </div>
         </div>
-        <span className="phase-badge">{gameMode}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button 
+            type="button" 
+            className="btn btn-sm" 
+            style={{ borderRadius: '20px', padding: '4px 12px', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+            onClick={() => window.dispatchEvent(new CustomEvent('start-tour'))}
+          >
+            ✨ 操作演示
+          </button>
+          <span className="phase-badge">{gameMode}</span>
+        </div>
       </header>
 
       <main className="layout">
         <section className="board-panel" aria-label="棋盘">
           <div className="board-area">
-            <div className="board-frame">
+            <div className="board-frame" data-tour="board">
               <canvas
                 ref={canvasRef}
                 width={BOARD_SIZE}
@@ -206,17 +216,19 @@ export function ChessGame() {
         </section>
 
         <aside className="sidebar">
-          <SessionList
-            sessions={sessions}
-            activeSessionId={activeSessionId}
-            onSelect={switchSession}
-            onCreate={createSession}
-            onDelete={deleteSession}
-            onRename={renameSession}
-            onStartScenario={startCoachingScenario}
-          />
+          <div data-tour="session-list">
+            <SessionList
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onSelect={switchSession}
+              onCreate={createSession}
+              onDelete={deleteSession}
+              onRename={renameSession}
+              onStartScenario={startCoachingScenario}
+            />
+          </div>
 
-          <section className="card">
+          <section className="card" data-tour="game-controls">
             <h2>对局</h2>
             <div className="status-row">
               <p className={`status${statusMessage.includes('失败') || statusMessage.includes('未找到') ? ' status-error' : ''}`}>
@@ -361,7 +373,7 @@ export function ChessGame() {
             </div>
           </section>
 
-          <section className="card">
+          <section className="card" data-tour="move-history">
             <h2>走子记录</h2>
             <ReplayControls 
               replay={replay} 

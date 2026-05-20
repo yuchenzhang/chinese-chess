@@ -969,3 +969,101 @@
 .coaching-session.active {
   background: color-mix(in srgb, var(--accent) 12%, var(--surface)) !important;
 }
+
+/* Guide Tour Styles */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
+.tour-tooltip {
+  width: min(320px, 90vw);
+  background: #fff;
+  color: #1a1a1a;
+  padding: 1.25rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  line-height: 1.5;
+}
+
+.tour-tooltip-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tour-tooltip-content {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.tour-tooltip-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #eee;
+  padding-top: 0.75rem;
+}
+
+.tour-tooltip-progress {
+  font-size: 0.8rem;
+  color: #888;
+  font-weight: 500;
+}
+
+.tour-tooltip-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tour-highlight {
+  position: relative;
+  z-index: 1001 !important;
+  box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.3), 0 0 0 9999px rgba(0, 0, 0, 0.5) !important;
+  pointer-events: auto !important; /* Allow some interaction but let tooltip be on top */
+  border-radius: 8px;
+}
+
+.tour-tooltip-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+.tour-tooltip-arrow[data-position="bottom"] {
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 8px 8px 8px;
+  border-color: transparent transparent #fff transparent;
+}
+
+.tour-tooltip-arrow[data-position="top"] {
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 8px 8px 0 8px;
+  border-color: #fff transparent transparent transparent;
+}
+
+.tour-tooltip-arrow[data-position="left"] {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 8px 0 8px 8px;
+  border-color: transparent transparent transparent #fff;
+}
+
+.tour-tooltip-arrow[data-position="right"] {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 8px 8px 8px 0;
+  border-color: transparent #fff transparent transparent;
+}
