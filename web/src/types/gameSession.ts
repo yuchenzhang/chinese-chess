@@ -42,11 +42,23 @@ export interface LlmAnalysisSummary {
   training_focus: string[]
 }
 
+export interface CoachingScenario {
+  id: string
+  title: string
+  description: string
+  difficulty: 'easy' | 'medium' | 'hard'
+  initial_pen: string
+  instruction: string
+  /** Optional: the ply from the original game this is based on */
+  target_ply?: number
+}
+
 export interface LlmAnalysis {
   game_id: string
   review_type: string
   annotations: LlmAnnotation[]
   summary: LlmAnalysisSummary
+  coaching_scenarios?: CoachingScenario[]
 }
 
 export interface GameSession {
@@ -66,6 +78,10 @@ export interface GameSession {
   vsAi: boolean
   /** LLM analysis result */
   llmAnalysis?: LlmAnalysis
+  /** AI 教练指导文字（针对特定习题/残局） */
+  coachingInstruction?: string
+  /** 是否为教练对局 */
+  isCoaching?: boolean
 }
 
 export interface SessionStore {

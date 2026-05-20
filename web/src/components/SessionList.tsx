@@ -8,9 +8,11 @@ interface SessionListProps {
   onCreate: () => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
+  onStartScenario?: (scenario: any) => void
 }
 
 function sessionSummary(session: GameSession): string {
+  if (session.isCoaching) return '教练训练'
   if (!session.vsAi) return '未启用人机'
   if (session.status === 'setup') return '未开始'
   if (session.winner) {
@@ -37,6 +39,7 @@ export function SessionList({
   onCreate,
   onDelete,
   onRename,
+  onStartScenario,
 }: SessionListProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -51,6 +54,7 @@ export function SessionList({
     setEditingId(null)
   }
 
+  const activeSession = sessions.find(s => s.id === activeSessionId)
   const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
 
   return (
@@ -61,12 +65,46 @@ export function SessionList({
           + 新棋局
         </button>
       </div>
-      <p className="hint storage-hint">保存在本机浏览器（localStorage）</p>
+      
+      {activeSession?.llmAnalysis?.coaching_scenarios && activeSession.llmAnalysis.coaching_scenarios.length > 0 && (
+        <div className="coaching-scenarios-mini">
+          <p className="hint" style={{ marginBottom: '8px', fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 'bold' }}>🎓 AI 教练习题</p>
+          <div style={{ display: 'grid', gap: '8px', marginBottom: '16px' }}>
+            {activeSession.llmAnalysis.coaching_scenarios.map(s => (
+              <button 
+                key={s.id} 
+                className="btn btn-sm" 
+                style={{ 
+                  textAlign: 'left', 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  background: 'color-mix(in srgb, var(--accent) 5%, var(--bg))',
+                  borderColor: 'color-mix(in srgb, var(--accent) 20%, var(--border))'
+                }}
+                onClick={() => onStartScenario?.(s)}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                <span style={{ 
+                  fontSize: '0.65rem', 
+                  padding: '1px 4px', 
+                  borderRadius: '3px',
+                  background: s.difficulty === 'hard' ? '#fee2e2' : s.difficulty === 'medium' ? '#fef3c7' : '#dcfce7',
+                  color: s.difficulty === 'hard' ? '#991b1b' : s.difficulty === 'medium' ? '#92400e' : '#166534',
+                  marginLeft: '4px',
+                  flexShrink: 0
+                }}>{s.difficulty === 'hard' ? '难' : s.difficulty === 'medium' ? '中' : '简'}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <ul className="session-list">
         {sorted.map((session) => {
           const isActive = session.id === activeSessionId
           return (
-            <li key={session.id} className={isActive ? 'session-item active' : 'session-item'}>
+            <li key={session.id} className={`${isActive ? 'session-item active' : 'session-item'}${session.isCoaching ? ' coaching-session' : ''}`}>
               {editingId === session.id ? (
                 <input
                   className="session-rename-input"
@@ -86,12 +124,15 @@ export function SessionList({
                   onClick={() => onSelect(session.id)}
                   onDoubleClick={() => startRename(session)}
                 >
-                  <span className="session-title">{session.title}</span>
+                  <span className="session-title">
+                    {session.isCoaching && <span style={{ marginRight: '4px' }}>🎓</span>}
+                    {session.title}
+                  </span>
                   <span className="session-meta">
-                    {session.vsAi && (
+                    {session.vsAi && !session.isCoaching && (
                       <span className="session-badge session-badge-ai">人机</span>
                     )}
-                    <span className="session-badge">{sessionSummary(session)}</span>
+                    <span className={`session-badge${session.isCoaching ? ' session-badge-coaching' : ''}`}>{sessionSummary(session)}</span>
                     <time dateTime={new Date(session.updatedAt).toISOString()}>
                       {formatTime(session.updatedAt)}
                     </time>
@@ -121,3 +162,4 @@ export function SessionList({
     </section>
   )
 }
+

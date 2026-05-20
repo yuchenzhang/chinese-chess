@@ -251,7 +251,18 @@ ${JSON.stringify(gameData, null, 2)}
     "overall": "请用 120 到 200 字总结整局棋。",
     "main_problems": ["问题1", "问题2", "问题3"],
     "training_focus": ["训练方向1", "训练方向2", "训练方向3"]
-  }
+  },
+  "coaching_scenarios": [
+    {
+      "id": "scenario_1",
+      "title": "残局攻防训练",
+      "description": "针对第 25 手的失误，重新尝试更佳的防御方案。",
+      "difficulty": "medium",
+      "initial_pen": "...",
+      "instruction": "在此局面下，黑方正面临沉底炮的威胁。请思考如何通过运车和补士来化解危机，并尝试反击。",
+      "target_ply": 25
+    }
+  ]
 }
 
 字段要求：
@@ -265,6 +276,10 @@ ${JSON.stringify(gameData, null, 2)}
 - summary.overall 是整局总结；
 - summary.main_problems 写${playerSide === 'RED' ? '红' : '黑'}方本局主要问题；
 - summary.training_focus 写${playerSide === 'RED' ? '红' : '黑'}方后续训练方向；
+- coaching_scenarios 提取 2 到 3 个具有训练价值的瞬间（如残局、复杂对攻或重大失误处）：
+  - initial_pen 必须是合法的 PEN 字符串，通常是 target_ply 前后的局面；
+  - instruction 是给学生的指导语，说明训练目标和思路；
+  - difficulty 只能使用 easy、medium、hard；
 - 只返回 JSON，不要返回 Markdown，不要添加额外解释。`
 }
 

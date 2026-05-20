@@ -17,7 +17,7 @@ export function defaultSessionTitle(date = new Date()): string {
 }
 
 export function createSession(
-  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi'>>,
+  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi' | 'positionPen' | 'coachingInstruction'>>,
 ): GameSession {
   const now = Date.now()
   return {
@@ -26,12 +26,13 @@ export function createSession(
     createdAt: now,
     updatedAt: now,
     playerSide: partial?.playerSide ?? 'RED',
-    positionPen: initBoardPen,
+    positionPen: partial?.positionPen ?? initBoardPen,
     moveHistory: [],
     winner: null,
     status: 'setup',
     currentTurn: null,
     vsAi: partial?.vsAi ?? true,
+    coachingInstruction: partial?.coachingInstruction,
   }
 }
 

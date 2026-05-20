@@ -944,3 +944,28 @@
   align-items: center;
   justify-content: center;
 }
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.coaching-overlay {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+.coaching-card .scenario-item:hover {
+  background: color-mix(in srgb, var(--surface) 80%, var(--accent) 8%) !important;
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important;
+  transform: translateY(-1px);
+}
+
+.session-badge-coaching {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+}
+
+.coaching-session.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface)) !important;
+}

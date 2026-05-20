@@ -42,6 +42,7 @@ export interface UseChessGameResult {
   lastAiResponse: string | null
   canPlayerMove: boolean
   startNewGame: () => void
+  startCoachingScenario: (scenario: any) => void
   triggerAiMove: () => void
   flipBoard: () => void
   createSession: () => void
@@ -397,6 +398,35 @@ export function useChessGame(): UseChessGameResult {
     }
   }, [patchActiveSession])
 
+  const startCoachingScenario = useCallback((scenario: any) => {
+    aiRunIdRef.current++
+    setAiThinking(false)
+    setAiError(null)
+
+    // Parse turn from PEN (r/w/b)
+    const penParts = (scenario.initial_pen || '').split(' ')
+    const turnChar = penParts[1] || 'r'
+    const turn: PieceSide = (turnChar === 'r' || turnChar === 'w') ? 'RED' : 'BLACK'
+
+    const active = sessionsRef.current.find(s => s.id === activeSessionIdRef.current)
+    const session = makeSession({
+      vsAi: true,
+      title: `${scenario.title}`,
+      positionPen: scenario.initial_pen,
+      coachingInstruction: scenario.instruction,
+      playerSide: turn
+    })
+
+    session.isCoaching = true
+    session.llmAnalysis = active?.llmAnalysis
+    session.status = 'active'
+    session.currentTurn = turn
+
+    const next = [session, ...sessionsRef.current]
+    persist(next, session.id)
+    loadSessionOnBoard(session)
+  }, [loadSessionOnBoard, persist])
+
   const flipBoard = useCallback(() => {
     const game = gameRef.current
     if (!game) return
@@ -644,6 +674,7 @@ export function useChessGame(): UseChessGameResult {
     lastAiResponse,
     canPlayerMove,
     startNewGame,
+    startCoachingScenario,
     triggerAiMove,
     flipBoard,
     createSession: createSessionHandler,

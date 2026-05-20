@@ -38,6 +38,7 @@ export function ChessGame() {
     deleteSession,
     renameSession,
     patchActiveSession,
+    startCoachingScenario,
   } = useChessGame()
 
   const replay = useReplay(activeSession, gameRef, canvasRef)
@@ -82,7 +83,7 @@ export function ChessGame() {
           </span>
           <div>
             <h1>中国象棋</h1>
-            <p className="tagline">人机对弈 · AI 教练（建设中）</p>
+            <p className="tagline">人机对弈 · AI 教练</p>
           </div>
         </div>
         <span className="phase-badge">{gameMode}</span>
@@ -164,6 +165,38 @@ export function ChessGame() {
                   </div>
                 )
               })()}
+              
+              {activeSession.status === 'active' && activeSession.coachingInstruction && !replay.isReplaying && (
+                <div className="coaching-overlay" style={{
+                  position: 'absolute',
+                  top: '15%',
+                  left: '10%',
+                  right: '10%',
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(8px)',
+                  padding: '24px',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.3)',
+                  border: '2px solid var(--accent)',
+                  zIndex: 100,
+                  color: '#1a1a1a',
+                  lineHeight: 1.6
+                }}>
+                  <h3 style={{ marginTop: 0, marginBottom: '12px', color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>💡</span> AI 教练指导
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '1.1rem', fontWeight: 500, color: '#333' }}>{activeSession.coachingInstruction}</p>
+                  <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                     <button 
+                       className="btn primary" 
+                       style={{ padding: '8px 24px', borderRadius: '20px' }}
+                       onClick={() => patchActiveSession({ coachingInstruction: undefined })}
+                     >
+                       开始练习
+                     </button>
+                  </div>
+                </div>
+              )}
             </div>
             <CapturedPieces
               moveHistory={moveHistory}
@@ -180,6 +213,7 @@ export function ChessGame() {
             onCreate={createSession}
             onDelete={deleteSession}
             onRename={renameSession}
+            onStartScenario={startCoachingScenario}
           />
 
           <section className="card">
@@ -207,6 +241,39 @@ export function ChessGame() {
                     <pre className="debug-tooltip-content">{lastAiResponse}</pre>
                   </div>
                 </div>
+              )}
+              {activeSession.isCoaching && !activeSession.coachingInstruction && (
+                <button
+                  type="button"
+                  className="btn-debug-icon"
+                  style={{ color: 'var(--accent)', borderColor: 'var(--accent)', marginLeft: '4px' }}
+                  title="查看教练指导"
+                  onClick={() => {
+                    // 调试日志
+                    console.log('[象棋·教练] 尝试恢复指导文字...', {
+                      sessionTitle: activeSession.title,
+                      hasAnalysis: !!activeSession.llmAnalysis,
+                      scenariosCount: activeSession.llmAnalysis?.coaching_scenarios?.length
+                    });
+
+                    // 1. 尝试从 coaching_scenarios 中找标题匹配的
+                    // 2. 找不到则找 target_ply 匹配的（如果有）
+                    // 3. 实在找不到则取第一个作为兜底
+                    const scenarios = activeSession.llmAnalysis?.coaching_scenarios || [];
+                    const scenario = scenarios.find(s => s.title === activeSession.title) || scenarios[0];
+                    const instruction = scenario?.instruction;
+                    
+                    if (instruction) {
+                      console.log('[象棋·教练] 成功找到指导文字');
+                      patchActiveSession({ coachingInstruction: instruction });
+                    } else {
+                      console.warn('[象棋·教练] 未找到匹配的指导文字');
+                      alert('抱歉，未能找回该局的教练指导。您可以尝试重新导入 AI 分析。');
+                    }
+                  }}
+                >
+                  <span style={{ fontSize: '1rem' }}>💡</span>
+                </button>
               )}
             </div>
             {activeSession.status === 'active' && !winner && (
