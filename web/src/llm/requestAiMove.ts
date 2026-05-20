@@ -1,9 +1,10 @@
 import { type PieceSide } from 'zh-chess'
 import type { MoveRecord } from '../types/gameSession'
-import { requestAiMoveFromServer } from './apiClient'
+import { requestAiMoveFromServer, type AiMoveResult } from './apiClient'
 import { logLlm } from './debug'
 import { loadLlmSettings } from '../storage/llmSettingsStore'
 import { type UciMoveInfo } from '../utils/uciToNotation'
+import { requestAiMoveFromLocal } from '../utils/engine/localEngine'
 
 export interface RequestAiMoveInput {
   positionPen: string
@@ -32,15 +33,23 @@ export async function requestAiMove(
   logLlm('requestAiMove 局面', {
     aiSide: input.aiSide,
     positionPen: input.positionPen,
+    provider: settings.providerId
   })
 
-  const result = await requestAiMoveFromServer({
-    providerId: settings.providerId,
-    modelId: settings.modelId,
-    messages: [], // LLM messages are no longer needed
-    positionPen: input.positionPen,
-    moveSide: input.aiSide,
-  })
+  let result: AiMoveResult
+
+  if (settings.providerId === 'local-engine') {
+    const history = input.moveHistory.map(m => m.penCode)
+    result = await requestAiMoveFromLocal(input.positionPen, history)
+  } else {
+    result = await requestAiMoveFromServer({
+      providerId: settings.providerId,
+      modelId: settings.modelId,
+      messages: [], // LLM messages are no longer needed
+      positionPen: input.positionPen,
+      moveSide: input.aiSide,
+    })
+  }
 
   return { 
     move: result.move, 

@@ -18,13 +18,17 @@ export interface FrontendProviderInfo {
 /** Fallback providers used before the backend is reachable. */
 export const FALLBACK_PROVIDERS: FrontendProviderInfo[] = [
   {
-    id: 'bailian',
-    name: '百炼 Coding Plan',
+    id: 'local-engine',
+    name: '本地引擎 (浏览器 JS)',
     models: [
-      { id: 'qwen3-coder-next', label: 'qwen3-coder-next (推荐)' },
-      { id: 'qwen3-max-2026-01-23', label: 'qwen3-max' },
-      { id: 'qwen3-coder-plus', label: 'qwen3-coder-plus' },
-      { id: 'kimi-k2.5', label: 'kimi-k2.5' },
+      { id: 'default', label: '默认搜索深度 (6层)' },
+    ],
+  },
+  {
+    id: 'rule-engine',
+    name: '远程引擎 (Python)',
+    models: [
+      { id: 'default', label: '默认搜索深度' },
     ],
   },
 ]

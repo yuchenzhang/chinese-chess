@@ -50,12 +50,17 @@ export class ApiClientError extends Error {
 export { getBackendUrl } from '../storage/llmConnectionStore'
 
 export async function fetchProviders(): Promise<LlmProviderInfo[]> {
-  // The rule-based engine doesn't have "providers", so we return a dummy or empty list.
-  // This keeps the UI working without major changes.
+  // Return both remote and local engines
   return [
     {
+      id: 'local-engine',
+      name: '本地引擎 (浏览器 JS)',
+      models: [{ id: 'default', name: '默认搜索深度 (6层)' }],
+      configured: true
+    },
+    {
       id: 'rule-engine',
-      name: '规则引擎 (Python)',
+      name: '远程引擎 (Python)',
       models: [{ id: 'default', name: '默认搜索深度' }],
       configured: true
     }
