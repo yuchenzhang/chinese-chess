@@ -1,4 +1,6 @@
 import type { UseReplayResult } from '../hooks/useReplay'
+import type { GameSession } from '../types/gameSession'
+import { exportGameRecord } from '../utils/exportGameRecord'
 
 const SPEED_OPTIONS = [
   { value: 2000, label: '0.5x' },
@@ -9,9 +11,10 @@ const SPEED_OPTIONS = [
 
 interface ReplayControlsProps {
   replay: UseReplayResult
+  session: GameSession
 }
 
-export function ReplayControls({ replay }: ReplayControlsProps) {
+export function ReplayControls({ replay, session }: ReplayControlsProps) {
   const {
     isReplaying,
     currentPly,
@@ -29,17 +32,35 @@ export function ReplayControls({ replay }: ReplayControlsProps) {
     goToPly,
   } = replay
 
+  const handleExport = () => {
+    const markdown = exportGameRecord(session)
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${session.title || '棋局记录'}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCopyExport = async () => {
+    const markdown = exportGameRecord(session)
+    await navigator.clipboard.writeText(markdown)
+  }
+
   if (!isReplaying) {
     return (
-      <button
-        type="button"
-        className="btn btn-replay-enter"
-        onClick={enterReplay}
-        disabled={totalPlies === 0}
-        title={totalPlies === 0 ? '当前对局暂无走子记录' : '回放本局棋谱'}
-      >
-        ▶ 回放棋局
-      </button>
+      <div className="replay-entry-row">
+        <button
+          type="button"
+          className="btn btn-replay-enter"
+          onClick={enterReplay}
+          disabled={totalPlies === 0}
+          title={totalPlies === 0 ? '当前对局暂无走子记录' : '回放本局棋谱'}
+        >
+          ▶ 回放棋局
+        </button>
+      </div>
     )
   }
 
@@ -129,6 +150,25 @@ export function ReplayControls({ replay }: ReplayControlsProps) {
             {opt.label}
           </button>
         ))}
+      </div>
+
+      <div className="replay-export">
+        <button
+          type="button"
+          className="btn btn-sm btn-export"
+          onClick={handleExport}
+          title="下载棋局记录（Markdown 格式，可供 AI 教练批注）"
+        >
+          📥 导出记录
+        </button>
+        <button
+          type="button"
+          className="btn btn-sm"
+          onClick={handleCopyExport}
+          title="复制棋局记录到剪贴板"
+        >
+          📋 复制
+        </button>
       </div>
     </div>
   )
