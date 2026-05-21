@@ -334,6 +334,21 @@ export function ChessGame() {
               <span>开启 AI 对弈</span>
             </label>
 
+            {vsAi && (
+              <label className="field">
+                <span>AI 难度</span>
+                <select
+                  value={activeSession.engineDepth ?? 4}
+                  onChange={(e) => patchActiveSession({ engineDepth: Number(e.target.value) })}
+                  disabled={activeSession.status === 'active' && !winner}
+                >
+                  <option value={2}>入门 (2层)</option>
+                  <option value={3}>普通 (3层)</option>
+                  <option value={4}>困难 (4层)</option>
+                </select>
+              </label>
+            )}
+
             <label className="field">
               <span>你的阵营</span>
               <select

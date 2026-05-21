@@ -4,7 +4,8 @@ import { type AiMoveResult } from '../../llm/apiClient'
 export async function requestAiMoveFromLocal(
   positionPen: string,
   history: string[] = [],
-  maxTime: number = 3.0
+  maxTime: number = 5.0,
+  depth: number = 4
 ): Promise<AiMoveResult> {
   const fen = normalizeFenForEngine(positionPen)
   
@@ -23,7 +24,7 @@ export async function requestAiMoveFromLocal(
         resolve({
           move: moveInfo.notation,
           moveInfo: moveInfo,
-          rawContent: `本地引擎 (Web Worker)\n最佳走法 (UCI): ${data.bestMove}\n评分: ${data.score}\n深度: ${data.depth}\n节点: ${data.nodesSearched}\n耗时: ${data.time.toFixed(2)}s`,
+          rawContent: `本地引擎 (Web Worker)\n最佳走法 (UCI): ${data.bestMove}\n评分: ${data.score}\n完成深度: ${data.depth}/${depth}\n节点: ${data.nodesSearched}\n耗时: ${data.time.toFixed(2)}s`,
           fullPrompt: `FEN: ${fen}\nUCI: ${data.bestMove}`
         })
       } else {
@@ -36,6 +37,6 @@ export async function requestAiMoveFromLocal(
       reject(err)
     }
 
-    worker.postMessage({ fen, maxTime, depth: 6, history })
+    worker.postMessage({ fen, maxTime, depth, history })
   })
 }

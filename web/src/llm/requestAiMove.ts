@@ -11,6 +11,7 @@ export interface RequestAiMoveInput {
   moveHistory: MoveRecord[]
   aiSide: PieceSide
   lastError?: string
+  engineDepth?: number
 }
 
 export interface RequestAiMoveResult {
@@ -33,14 +34,15 @@ export async function requestAiMove(
   logLlm('requestAiMove 局面', {
     aiSide: input.aiSide,
     positionPen: input.positionPen,
-    provider: settings.providerId
+    provider: settings.providerId,
+    engineDepth: input.engineDepth
   })
 
   let result: AiMoveResult
 
   if (settings.providerId === 'local-engine') {
     const history = input.moveHistory.map(m => m.penCode)
-    result = await requestAiMoveFromLocal(input.positionPen, history)
+    result = await requestAiMoveFromLocal(input.positionPen, history, 5.0, input.engineDepth)
   } else {
     result = await requestAiMoveFromServer({
       providerId: settings.providerId,

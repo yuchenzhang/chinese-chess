@@ -76,6 +76,8 @@ export interface GameSession {
   currentTurn: PieceSide | null
   /** 是否与本盘对大模型（人机对弈） */
   vsAi: boolean
+  /** 本地引擎思考层数（难度），默认4 */
+  engineDepth?: number
   /** LLM analysis result */
   llmAnalysis?: LlmAnalysis
   /** AI 教练指导文字（针对特定习题/残局） */

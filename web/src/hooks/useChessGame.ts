@@ -156,6 +156,7 @@ export function useChessGame(): UseChessGameResult {
             moveHistory: latest.moveHistory,
             aiSide: ai,
             lastError,
+            engineDepth: latest.engineDepth,
           })
 
           console.log('[象棋·AI] 收到后端返回', {

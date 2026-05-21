@@ -17,7 +17,7 @@ export function defaultSessionTitle(date = new Date()): string {
 }
 
 export function createSession(
-  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi' | 'positionPen' | 'coachingInstruction'>>,
+  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi' | 'positionPen' | 'coachingInstruction' | 'engineDepth'>>,
 ): GameSession {
   const now = Date.now()
   return {
@@ -32,6 +32,7 @@ export function createSession(
     status: 'setup',
     currentTurn: null,
     vsAi: partial?.vsAi ?? true,
+    engineDepth: partial?.engineDepth ?? 4,
     coachingInstruction: partial?.coachingInstruction,
   }
 }
@@ -58,6 +59,7 @@ export function loadStore(): SessionStore {
       ...s,
       currentTurn: s.currentTurn ?? null,
       vsAi: s.vsAi ?? true,
+      engineDepth: s.engineDepth ?? 4,
     }))
     return parsed
   } catch {
