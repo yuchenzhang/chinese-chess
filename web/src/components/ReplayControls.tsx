@@ -51,13 +51,13 @@ export function ReplayControls({ replay, session, onImportAnalysis }: ReplayCont
     try {
       setImportError('')
       const parsed = JSON.parse(importText)
-      if (parsed.annotations && parsed.summary) {
+      if (parsed.annotations && Array.isArray(parsed.annotations) && parsed.summary) {
         onImportAnalysis?.(parsed)
         setShowImport(false)
         setImportText('')
         alert('导入成功！在回放时可见大模型分析。')
       } else {
-        setImportError('JSON 格式不正确，缺少 annotations 或 summary')
+        setImportError('JSON 格式不正确，缺少 annotations (需为数组) 或 summary')
       }
     } catch (e) {
       setImportError('无效的 JSON 格式')
