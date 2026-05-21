@@ -17,16 +17,18 @@ export function defaultSessionTitle(date = new Date()): string {
 }
 
 export function createSession(
-  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi' | 'positionPen' | 'coachingInstruction' | 'engineDepth'>>,
+  partial?: Partial<Pick<GameSession, 'title' | 'playerSide' | 'vsAi' | 'positionPen' | 'coachingInstruction' | 'engineDepth' | 'initialPen'>>,
 ): GameSession {
   const now = Date.now()
+  const initialPen = partial?.initialPen ?? partial?.positionPen ?? initBoardPen
   return {
     id: newId(),
     title: partial?.title ?? defaultSessionTitle(),
     createdAt: now,
     updatedAt: now,
     playerSide: partial?.playerSide ?? 'RED',
-    positionPen: partial?.positionPen ?? initBoardPen,
+    initialPen,
+    positionPen: initialPen,
     moveHistory: [],
     winner: null,
     status: 'setup',
@@ -57,6 +59,7 @@ export function loadStore(): SessionStore {
     }
     parsed.sessions = parsed.sessions.map((s) => ({
       ...s,
+      initialPen: s.initialPen ?? initBoardPen,
       currentTurn: s.currentTurn ?? null,
       vsAi: s.vsAi ?? true,
       engineDepth: s.engineDepth ?? 4,

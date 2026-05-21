@@ -67,6 +67,8 @@ export interface GameSession {
   createdAt: number
   updatedAt: number
   playerSide: PieceSide
+  /** 初始局面 PEN */
+  initialPen?: string
   /** 当前局面 PEN（含行棋方） */
   positionPen: string
   moveHistory: MoveRecord[]

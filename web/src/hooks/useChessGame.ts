@@ -43,6 +43,9 @@ export interface UseChessGameResult {
   canPlayerMove: boolean
   startNewGame: () => void
   startCoachingScenario: (scenario: any) => void
+  undoMove: () => void
+  keyPieceAlert: { pieceName: string } | null
+  clearKeyPieceAlert: () => void
   triggerAiMove: () => void
   flipBoard: () => void
   createSession: () => void
@@ -62,6 +65,7 @@ export function useChessGame(): UseChessGameResult {
   const [aiError, setAiError] = useState<string | null>(null)
   const [lastAiPrompt, setLastAiPrompt] = useState<string | null>(null)
   const [lastAiResponse, setLastAiResponse] = useState<string | null>(null)
+  const [keyPieceAlert, setKeyPieceAlert] = useState<{ pieceName: string } | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<ZhChess | null>(null)
@@ -371,6 +375,52 @@ export function useChessGame(): UseChessGameResult {
     [loadSessionOnBoard],
   )
 
+  const undoMove = useCallback(() => {
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session || session.moveHistory.length === 0) return
+    if (aiThinkingRef.current) return
+
+    setKeyPieceAlert(null)
+    setAiError(null)
+    aiRunIdRef.current++
+
+    let newHistory = [...session.moveHistory]
+    const lastMove = newHistory[newHistory.length - 1]
+
+    if (session.vsAi) {
+      if (lastMove.side !== session.playerSide) {
+        // Undo AI's move and Human's move
+        newHistory.pop()
+        newHistory.pop()
+      } else {
+        // Only undo Human's move (e.g. if AI errored out)
+        newHistory.pop()
+      }
+    } else {
+      newHistory.pop()
+    }
+
+    const newPen = newHistory.length > 0
+      ? newHistory[newHistory.length - 1].penCode
+      : (session.initialPen ?? session.positionPen)
+
+    // Recover current turn from newPen
+    const penParts = newPen.split(' ')
+    const turnChar = penParts[1] || 'r'
+    const newTurn: PieceSide = (turnChar === 'r' || turnChar === 'w') ? 'RED' : 'BLACK'
+
+    patchActiveSession({
+      moveHistory: newHistory,
+      positionPen: newPen,
+      currentTurn: newTurn,
+      winner: null,
+      status: 'active',
+    })
+
+    const updatedSession = { ...session, moveHistory: newHistory, positionPen: newPen, currentTurn: newTurn, winner: null, status: 'active' as const }
+    queueMicrotask(() => loadSessionOnBoard(updatedSession))
+  }, [patchActiveSession, loadSessionOnBoard])
+
   const startNewGame = useCallback(() => {
     const game = gameRef.current
     const canvas = canvasRef.current
@@ -387,12 +437,14 @@ export function useChessGame(): UseChessGameResult {
     game.draw(ctx)
 
     const firstTurn = getEngineTurn(game)
+    const newPen = game.getCurrentPenCode(firstTurn)
     patchActiveSession({
       status: 'active',
       winner: null,
       moveHistory: [],
       currentTurn: firstTurn,
-      positionPen: game.getCurrentPenCode(firstTurn),
+      initialPen: newPen,
+      positionPen: newPen,
     })
 
     if (session.vsAi && firstTurn === getAiSide(side)) {
@@ -528,6 +580,15 @@ export function useChessGame(): UseChessGameResult {
       }
       const id = activeSessionIdRef.current
       const now = Date.now()
+
+      if (captured) {
+        const session = sessionsRef.current.find((s) => s.id === id)
+        if (session && session.vsAi && mover !== session.playerSide && captured.side === session.playerSide) {
+          if (['车', '马', '炮'].includes(captured.displayName)) {
+            setKeyPieceAlert({ pieceName: captured.displayName })
+          }
+        }
+      }
 
       setSessions((prev) => {
         const next = prev.map((s) => {
@@ -690,6 +751,10 @@ export function useChessGame(): UseChessGameResult {
     ? aiError
     : statusMessageFor(activeSession, aiThinking)
 
+  const clearKeyPieceAlert = useCallback(() => {
+    setKeyPieceAlert(null)
+  }, [])
+
   return {
     canvasRef,
     gameRef,
@@ -709,10 +774,13 @@ export function useChessGame(): UseChessGameResult {
     aiError,
     lastAiPrompt,
     lastAiResponse,
+    keyPieceAlert,
     canPlayerMove,
     startNewGame,
     startCoachingScenario,
     triggerAiMove,
+    undoMove,
+    clearKeyPieceAlert,
     flipBoard,
     createSession: createSessionHandler,
     switchSession,

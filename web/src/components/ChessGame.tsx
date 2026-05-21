@@ -30,15 +30,18 @@ export function ChessGame() {
     aiThinking,
     lastAiPrompt,
     lastAiResponse,
+    keyPieceAlert,
     startNewGame,
+    startCoachingScenario,
     triggerAiMove,
+    undoMove,
+    clearKeyPieceAlert,
     flipBoard,
     createSession,
     switchSession,
     deleteSession,
     renameSession,
     patchActiveSession,
-    startCoachingScenario,
   } = useChessGame()
 
   const replay = useReplay(activeSession, gameRef, canvasRef)
@@ -176,6 +179,46 @@ export function ChessGame() {
                 )
               })()}
               
+              {keyPieceAlert && !replay.isReplaying && (
+                <div className="coaching-overlay" style={{
+                  position: 'absolute',
+                  top: '30%',
+                  left: '10%',
+                  right: '10%',
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(8px)',
+                  padding: '24px',
+                  borderRadius: '16px',
+                  boxShadow: '0 12px 48px rgba(0,0,0,0.3)',
+                  border: '2px solid var(--error, #e11d48)',
+                  zIndex: 100,
+                  textAlign: 'center',
+                }}>
+                  <h3 style={{ margin: '0 0 16px', color: 'var(--error, #e11d48)', fontSize: '1.4rem' }}>
+                    ⚠️ 注意
+                  </h3>
+                  <p style={{ fontSize: '1.1rem', marginBottom: '24px', color: '#1a1a1a' }}>
+                    你的<strong>{keyPieceAlert.pieceName}</strong>被吃掉了！是否需要悔棋纠正错误？
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+                    <button 
+                      className="btn primary" 
+                      style={{ padding: '8px 24px', borderRadius: '20px', backgroundColor: 'var(--error, #e11d48)', borderColor: 'var(--error, #e11d48)' }}
+                      onClick={undoMove}
+                    >
+                      悔棋
+                    </button>
+                    <button 
+                      className="btn" 
+                      style={{ padding: '8px 24px', borderRadius: '20px' }}
+                      onClick={clearKeyPieceAlert}
+                    >
+                      继续
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {activeSession.status === 'active' && activeSession.coachingInstruction && !replay.isReplaying && (
                 <div className="coaching-overlay" style={{
                   position: 'absolute',
@@ -382,6 +425,14 @@ export function ChessGame() {
                   请求 AI 走子
                 </button>
               )}
+              <button 
+                type="button" 
+                className="btn" 
+                onClick={undoMove}
+                disabled={moveHistory.length === 0 || aiThinking || !!winner}
+              >
+                悔棋
+              </button>
               <button type="button" className="btn" onClick={flipBoard}>
                 翻转视角
               </button>
