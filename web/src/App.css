@@ -70,6 +70,79 @@
   align-items: start;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.desktop-nav {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.mobile-main-actions {
+  display: none;
+  width: 100%;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+.mobile-secondary-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.mobile-secondary-row .btn {
+  flex: 1;
+}
+
+.btn-lg {
+  padding: 1.25rem 2rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  border-radius: 16px;
+  min-height: 4rem;
+}
+
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: none;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+.game-info-summary {
+  background: var(--bg);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+}
+
+.card-header-with-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.card-header-with-toggle h2 {
+  margin: 0;
+}
+
 .board-panel {
   display: flex;
   justify-content: center;
@@ -617,18 +690,103 @@
 }
 
 @media (max-width: 900px) {
+  :root {
+    font-size: 18px; /* 整体字体基准放大 */
+  }
+
   .layout {
     grid-template-columns: 1fr;
-    padding: 1rem;
+    padding: 0; /* 移除外层边距 */
+    gap: 0;
   }
 
   .header {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 1rem;
+    align-items: center;
+    text-align: center;
+    gap: 1.5rem;
+    padding: 1.5rem 1rem;
   }
 
+  .brand h1 {
+    font-size: 2rem;
+  }
+
+  .brand-mark {
+    width: 4rem;
+    height: 4rem;
+    font-size: 2rem;
+  }
+
+  .tagline {
+    font-size: 1.1rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .btn-sm.btn-tour {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    border-radius: 24px;
+  }
+
+  .phase-badge {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .desktop-nav {
+    display: none;
+  }
+
+  .mobile-only {
+    display: flex;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-main-actions {
+    display: flex;
+  }
+
+  .sidebar {
+    display: none;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+
+  .sidebar.show-mobile {
+    display: flex;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  .captured-pieces {
+    margin: 1rem;
+    width: auto;
+  }
+
+  .board-frame {
+    border-radius: 0; /* 手机端取消棋盘圆角以适应边缘 */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    width: 100vw;
+  }
+
+  .board-area {
+    width: 100%;
+    gap: 0;
+  }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .status-row {
@@ -1103,4 +1261,14 @@
   transform: translateY(-50%);
   border-width: 8px 8px 8px 0;
   border-color: transparent #fff transparent transparent;
+}
+
+.app-footer {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+  margin-top: 40px;
+  opacity: 0.8;
 }

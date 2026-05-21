@@ -16,46 +16,25 @@ import { getEngineTurn } from '../utils/zhChessEngine'
 import { moveToNotation } from '../utils/notation'
 import { getPieceAtPosition, isNotableMove } from '../utils/penParser'
 
-export const BOARD_SIZE = 720
-export const BOARD_PADDING = 40
+const getBoardConfig = () => {
+  if (typeof window === 'undefined') return { size: 720, padding: 40 };
+  const width = window.innerWidth;
+  if (width < 768) {
+    // 移动端：极小化内边距 (8px)，使棋子尽可能占据全宽
+    // 棋子大小 = (size - 2 * padding) / 9
+    // 原 padding 15 -> 8, pieces will be much larger
+    const size = width; // 占满屏幕宽度
+    return { size, padding: 8 };
+  }
+  return { size: 720, padding: 40 };
+};
 
 const MAX_AI_RETRIES = 3
 
-export interface UseChessGameResult {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
-  gameRef: React.RefObject<ZhChess | null>
-  sessions: GameSession[]
-  activeSession: GameSession
-  activeSessionId: string
-  playerSide: PieceSide
-  setPlayerSide: (side: PieceSide) => void
-  vsAi: boolean
-  setVsAi: (vsAi: boolean) => void
-  currentTurn: PieceSide | null
-  positionPen: string
-  moveHistory: GameSession['moveHistory']
-  winner: PieceSide | null
-  statusMessage: string
-  aiThinking: boolean
-  aiError: string | null
-  lastAiPrompt: string | null
-  lastAiResponse: string | null
-  canPlayerMove: boolean
-  startNewGame: () => void
-  startCoachingScenario: (scenario: any) => void
-  undoMove: () => void
-  keyPieceAlert: { pieceName: string } | null
-  clearKeyPieceAlert: () => void
-  triggerAiMove: () => void
-  flipBoard: () => void
-  createSession: () => void
-  switchSession: (id: string) => void
-  deleteSession: (id: string) => void
-  renameSession: (id: string, title: string) => void
-  patchActiveSession: (patch: Partial<GameSession>) => void
-}
+export function useChessGame(): UseChessGameResult & { boardSize: number; boardPadding: number } {
+  const [boardConfig] = useState(getBoardConfig);
+  const { size: BOARD_SIZE, padding: BOARD_PADDING } = boardConfig;
 
-export function useChessGame(): UseChessGameResult {
   const initialStore = useRef(loadStore())
   const [sessions, setSessions] = useState<GameSession[]>(initialStore.current.sessions)
   const [activeSessionId, setActiveSessionId] = useState(
@@ -688,7 +667,7 @@ export function useChessGame(): UseChessGameResult {
       game.removeEvent('move', onMove)
       game.removeEvent('over', onOver)
     }
-  }, [maybeRequestAi])
+  }, [maybeRequestAi, BOARD_SIZE, BOARD_PADDING])
 
   useEffect(() => {
     aiRunIdRef.current++
@@ -787,5 +766,7 @@ export function useChessGame(): UseChessGameResult {
     deleteSession,
     renameSession,
     patchActiveSession,
+    boardSize: BOARD_SIZE,
+    boardPadding: BOARD_PADDING,
   }
 }

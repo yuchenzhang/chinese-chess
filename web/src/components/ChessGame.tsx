@@ -1,4 +1,4 @@
-import { BOARD_SIZE, useChessGame } from '../hooks/useChessGame'
+import { useChessGame } from '../hooks/useChessGame'
 import { useReplay } from '../hooks/useReplay'
 import { getAiSide } from '../utils/chessSides'
 import { peiceSideMap, type PieceSide } from 'zh-chess'
@@ -7,6 +7,7 @@ import { SessionList } from './SessionList'
 import { ReplayControls } from './ReplayControls'
 import { CapturedPieces } from './CapturedPieces'
 import buildInfo from '../build-info.json'
+import { useState } from 'react'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
   { value: 'RED', label: '红方（先手）' },
@@ -43,8 +44,10 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
     deleteSession,
     renameSession,
     patchActiveSession,
+    boardSize,
   } = useChessGame()
 
+  const [showSettings, setShowSettings] = useState(false)
   const replay = useReplay(activeSession, gameRef, canvasRef)
 
   const canChangeSide = activeSession.status === 'setup' || !!winner
@@ -57,18 +60,6 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
     !winner &&
     currentTurn !== playerSide
   
-  if (import.meta.env.DEV) {
-    console.log('[象棋·DEBUG] UI State:', {
-      vsAi,
-      status: activeSession.status,
-      winner,
-      currentTurn,
-      aiSide,
-      isAiTurn,
-      aiThinking
-    })
-  }
-
   const boardBlocked =
     replay.isReplaying ||
     (vsAi &&
@@ -90,8 +81,8 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
             <p className="tagline">人机对弈 · AI 教练</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <nav style={{ display: 'flex', gap: '20px', alignItems: 'center', marginRight: '8px' }}>
+        <div className="header-actions">
+          <nav className="desktop-nav">
             <a 
               href="https://github.com/yuchenzhang/chinese-chess" 
               target="_blank" 
@@ -113,8 +104,7 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
           </nav>
           <button 
             type="button" 
-            className="btn btn-sm" 
-            style={{ borderRadius: '20px', padding: '4px 12px', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+            className="btn btn-sm btn-tour" 
             onClick={() => window.dispatchEvent(new CustomEvent('start-tour'))}
           >
             ✨ 操作演示
@@ -129,8 +119,8 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
             <div className="board-frame" data-tour="board">
               <canvas
                 ref={canvasRef}
-                width={BOARD_SIZE}
-                height={BOARD_SIZE}
+                width={boardSize}
+                height={boardSize}
                 className="board-canvas"
                 role="img"
                 aria-label="中国象棋棋盘，点击棋子走棋"
@@ -272,6 +262,36 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
                 </div>
               )}
             </div>
+            
+            <div className="mobile-main-actions">
+              <button
+                type="button"
+                className="btn primary btn-lg"
+                onClick={startNewGame}
+                disabled={aiThinking}
+              >
+                {startLabel}
+              </button>
+              
+              <div className="mobile-secondary-row">
+                <button 
+                  type="button" 
+                  className="btn btn-lg" 
+                  onClick={() => setShowSettings(!showSettings)}
+                >
+                  {showSettings ? '隐藏设置' : '游戏设置'}
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-lg" 
+                  onClick={undoMove}
+                  disabled={moveHistory.length === 0 || aiThinking || !!winner}
+                >
+                  悔棋
+                </button>
+              </div>
+            </div>
+
             <CapturedPieces
               moveHistory={moveHistory}
               maxPly={replay.isReplaying ? replay.currentPly : undefined}
@@ -279,21 +299,23 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
           </div>
         </section>
 
-        <aside className="sidebar">
+        <aside className={`sidebar ${showSettings ? 'show-mobile' : ''}`}>
           <div data-tour="session-list">
             <SessionList
               sessions={sessions}
               activeSessionId={activeSessionId}
-              onSelect={switchSession}
+              onSelect={(id) => { switchSession(id); setShowSettings(false); }}
               onCreate={createSession}
               onDelete={deleteSession}
               onRename={renameSession}
-              onStartScenario={startCoachingScenario}
+              onStartScenario={(s) => { startCoachingScenario(s); setShowSettings(false); }}
             />
           </div>
 
           <section className="card" data-tour="game-controls">
-            <h2>对局</h2>
+            <div className="card-header-with-toggle">
+              <h2>对局设置</h2>
+            </div>
             <div className="status-row">
               <p className={`status${statusMessage.includes('失败') || statusMessage.includes('未找到') ? ' status-error' : ''}`}>
                 {statusMessage}
@@ -318,117 +340,89 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
                   </div>
                 </div>
               )}
-              {activeSession.isCoaching && !activeSession.coachingInstruction && (
-                <button
-                  type="button"
-                  className="btn-debug-icon"
-                  style={{ color: 'var(--accent)', borderColor: 'var(--accent)', marginLeft: '4px' }}
-                  title="查看教练指导"
-                  onClick={() => {
-                    // 调试日志
-                    console.log('[象棋·教练] 尝试恢复指导文字...', {
-                      sessionTitle: activeSession.title,
-                      hasAnalysis: !!activeSession.llmAnalysis,
-                      scenariosCount: activeSession.llmAnalysis?.coaching_scenarios?.length
-                    });
-
-                    // 1. 尝试从 coaching_scenarios 中找标题匹配的
-                    // 2. 找不到则找 target_ply 匹配的（如果有）
-                    // 3. 实在找不到则取第一个作为兜底
-                    const scenarios = activeSession.llmAnalysis?.coaching_scenarios || [];
-                    const scenario = scenarios.find(s => s.title === activeSession.title) || scenarios[0];
-                    const instruction = scenario?.instruction;
-                    
-                    if (instruction) {
-                      console.log('[象棋·教练] 成功找到指导文字');
-                      patchActiveSession({ coachingInstruction: instruction });
-                    } else {
-                      console.warn('[象棋·教练] 未找到匹配的指导文字');
-                      alert('抱歉，未能找回该局的教练指导。您可以尝试重新导入 AI 分析。');
+            </div>
+            
+            <div className="game-info-summary">
+              {activeSession.status === 'active' && !winner && (
+                <p className="turn matchup">
+                  {vsAi ? (
+                    <>你执 <strong>{peiceSideMap[playerSide]}</strong>{' · '}AI 执 <strong>{peiceSideMap[aiSide]}</strong></>
+                  ) : (
+                    <>模式：<strong>人人对弈</strong></>
+                  )}
+                </p>
+              )}
+              {currentTurn && !winner && (
+                <p className="turn">
+                  当前行棋：
+                  <strong>
+                    {vsAi
+                      ? (currentTurn === playerSide
+                        ? `${peiceSideMap[currentTurn]}（你）`
+                        : `${peiceSideMap[currentTurn]}（AI）`)
+                      : peiceSideMap[currentTurn]
                     }
-                  }}
-                >
-                  <span style={{ fontSize: '1rem' }}>💡</span>
-                </button>
+                  </strong>
+                </p>
+              )}
+              {winner && (
+                <p className="winner">
+                  胜方：
+                  <strong>
+                    {vsAi
+                      ? (winner === playerSide
+                        ? `${peiceSideMap[winner]}（你）`
+                        : `${peiceSideMap[winner]}（AI）`)
+                      : peiceSideMap[winner]
+                    }
+                  </strong>
+                </p>
               )}
             </div>
-            {activeSession.status === 'active' && !winner && (
-              <p className="turn matchup">
-                {vsAi ? (
-                  <>你执 <strong>{peiceSideMap[playerSide]}</strong>{' · '}AI 执 <strong>{peiceSideMap[aiSide]}</strong></>
-                ) : (
-                  <>模式：<strong>人人对弈</strong></>
-                )}
-              </p>
-            )}
-            {currentTurn && !winner && (
-              <p className="turn">
-                当前行棋：
-                <strong>
-                  {vsAi
-                    ? (currentTurn === playerSide
-                      ? `${peiceSideMap[currentTurn]}（你）`
-                      : `${peiceSideMap[currentTurn]}（AI）`)
-                    : peiceSideMap[currentTurn]
-                  }
-                </strong>
-              </p>
-            )}
-            {winner && (
-              <p className="winner">
-                胜方：
-                <strong>
-                  {vsAi
-                    ? (winner === playerSide
-                      ? `${peiceSideMap[winner]}（你）`
-                      : `${peiceSideMap[winner]}（AI）`)
-                    : peiceSideMap[winner]
-                  }
-                </strong>
-              </p>
-            )}
 
-            <label className="field field-checkbox">
-              <input
-                type="checkbox"
-                checked={vsAi}
-                onChange={(e) => setVsAi(e.target.checked)}
-                disabled={activeSession.status === 'active' && !winner}
-              />
-              <span>开启 AI 对弈</span>
-            </label>
-
-            {vsAi && (
-              <label className="field">
-                <span>AI 难度</span>
-                <select
-                  value={activeSession.engineDepth ?? 4}
-                  onChange={(e) => patchActiveSession({ engineDepth: Number(e.target.value) })}
+            <div className="settings-grid">
+              <label className="field field-checkbox">
+                <input
+                  type="checkbox"
+                  checked={vsAi}
+                  onChange={(e) => setVsAi(e.target.checked)}
                   disabled={activeSession.status === 'active' && !winner}
+                />
+                <span>开启 AI 对弈</span>
+              </label>
+
+              {vsAi && (
+                <label className="field">
+                  <span>AI 难度</span>
+                  <select
+                    value={activeSession.engineDepth ?? 4}
+                    onChange={(e) => patchActiveSession({ engineDepth: Number(e.target.value) })}
+                    disabled={activeSession.status === 'active' && !winner}
+                  >
+                    <option value={2}>入门 (2层)</option>
+                    <option value={3}>普通 (3层)</option>
+                    <option value={4}>困难 (4层)</option>
+                  </select>
+                </label>
+              )}
+
+              <label className="field">
+                <span>你的阵营</span>
+                <select
+                  value={playerSide}
+                  onChange={(e) => setPlayerSide(e.target.value as PieceSide)}
+                  disabled={!canChangeSide}
                 >
-                  <option value={2}>入门 (2层)</option>
-                  <option value={3}>普通 (3层)</option>
-                  <option value={4}>困难 (4层)</option>
+                  {SIDE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
                 </select>
               </label>
-            )}
+            </div>
 
-            <label className="field">
-              <span>你的阵营</span>
-              <select
-                value={playerSide}
-                onChange={(e) => setPlayerSide(e.target.value as PieceSide)}
-                disabled={!canChangeSide}
-              >
-                {SIDE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="actions">
+            <div className="actions desktop-only">
               <button
                 type="button"
                 className="btn primary"
@@ -457,6 +451,22 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
               <button type="button" className="btn" onClick={flipBoard}>
                 翻转视角
               </button>
+            </div>
+            
+            <div className="actions mobile-only" style={{ marginTop: '1rem' }}>
+               <button type="button" className="btn" onClick={flipBoard} style={{ flex: 1 }}>
+                翻转视角
+              </button>
+              {isAiTurn && !aiThinking && (
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={triggerAiMove}
+                  style={{ flex: 1 }}
+                >
+                  请求 AI 走子
+                </button>
+              )}
             </div>
           </section>
 
@@ -510,44 +520,43 @@ export function ChessGame({ onShowChangelog }: { onShowChangelog: () => void }) 
           <LlmSettings />
 
           {lastAiResponse && (
-            <details className="card card-muted" open>
+            <details className="card card-muted">
               <summary style={{ cursor: 'pointer' }}><h2 style={{ display: 'inline', margin: 0 }}>引擎分析</h2></summary>
-              <p className="hint" style={{ marginTop: '0.5rem' }}>决策引擎输出的评估信息</p>
               <pre className="pen-block">{lastAiResponse}</pre>
             </details>
           )}
 
           {lastAiPrompt && (
-            <details className="card card-muted" open>
+            <details className="card card-muted">
               <summary style={{ cursor: 'pointer' }}><h2 style={{ display: 'inline', margin: 0 }}>引擎调试信息</h2></summary>
-              <p className="hint" style={{ marginTop: '0.5rem' }}>发送给引擎的 FEN 局面和 UCI 着法</p>
               <pre className="prompt-block">{lastAiPrompt}</pre>
-              <button
-                type="button"
-                className="btn btn-sm"
-                style={{ marginTop: 8 }}
-                onClick={() => navigator.clipboard.writeText(lastAiPrompt)}
-              >
-                复制到剪贴板
-              </button>
             </details>
           )}
         </aside>
       </main>
-      <footer className="app-footer" style={{ 
-        padding: '24px', 
-        textAlign: 'center', 
-        color: 'var(--text-muted)', 
-        fontSize: '0.85rem', 
-        borderTop: '1px solid var(--border)', 
-        marginTop: '40px',
-        opacity: 0.8
-      }}>
+      <footer className="app-footer">
+        <div className="footer-links mobile-only" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
+             <a 
+              href="https://github.com/yuchenzhang/chinese-chess" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="nav-link"
+            >
+              GitHub
+            </a>
+            <button 
+              type="button" 
+              className="btn-link" 
+              onClick={onShowChangelog}
+            >
+              更新日志
+            </button>
+        </div>
         <div style={{ marginBottom: '8px' }}>
           <strong>构建信息:</strong> {buildInfo.full_time}
         </div>
         {buildInfo.last_commits && buildInfo.last_commits.length > 0 && (
-          <div style={{ fontSize: '0.8rem' }}>
+          <div className="desktop-only" style={{ fontSize: '0.8rem', justifyContent: 'center' }}>
             <strong>最近更新:</strong> {buildInfo.last_commits[0].hash} - {buildInfo.last_commits[0].message} ({buildInfo.last_commits[0].date})
           </div>
         )}
