@@ -8,7 +8,41 @@ import {
   saveStore,
 } from '../storage/sessionStore'
 
-import type { CapturedPieceInfo, GameSession } from '../types/gameSession'
+import type { CapturedPieceInfo, GameSession, MoveRecord } from '../types/gameSession'
+
+export interface UseChessGameResult {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+  gameRef: React.RefObject<ZhChess | null>
+  sessions: GameSession[]
+  activeSession: GameSession
+  activeSessionId: string
+  playerSide: PieceSide
+  setPlayerSide: (side: PieceSide) => void
+  vsAi: boolean
+  setVsAi: (vsAi: boolean) => void
+  currentTurn: PieceSide | null
+  positionPen: string
+  moveHistory: MoveRecord[]
+  winner: PieceSide | null
+  statusMessage: string
+  aiThinking: boolean
+  aiError: string | null
+  lastAiPrompt: string | null
+  lastAiResponse: string | null
+  keyPieceAlert: { pieceName: string } | null
+  canPlayerMove: boolean
+  startNewGame: () => void
+  startCoachingScenario: (scenario: any) => void
+  triggerAiMove: () => void
+  undoMove: () => void
+  clearKeyPieceAlert: () => void
+  flipBoard: () => void
+  createSession: () => void
+  switchSession: (id: string) => void
+  deleteSession: (id: string) => void
+  renameSession: (id: string, title: string) => void
+  patchActiveSession: (patch: Partial<GameSession>) => void
+}
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
 import { statusMessageFor } from '../utils/gameSessionHelpers'
