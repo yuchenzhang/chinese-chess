@@ -1,8 +1,14 @@
 {
   "date": "2026-05-23",
-  "time": "01:58",
-  "full_time": "2026-05-23 01:58:40",
+  "time": "02:01",
+  "full_time": "2026-05-23 02:01:18",
   "last_commits": [
+  {
+    "hash": "d8ceff4",
+    "message": "fix: resolve TS6133 unused declared errors for captureSnapshot, board, and move",
+    "author": "yc",
+    "date": "2026-05-23"
+  },
   {
     "hash": "bc08186",
     "message": "feat: replace automatic snapshot triggers with manual snapshot recording tracing back up to 10 moves",
@@ -24,12 +30,6 @@
   {
     "hash": "a7b95cb",
     "message": "feat: 局势评估进度条与分水岭检测优化",
-    "author": "yc",
-    "date": "2026-05-22"
-  },
-  {
-    "hash": "a27be2b",
-    "message": "fix: 移动端操作演示引导定位与头部导航栏显示问题",
     "author": "yc",
     "date": "2026-05-22"
   }
