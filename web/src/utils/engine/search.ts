@@ -72,23 +72,25 @@ export class AlphaBetaSearch {
       for (const move of orderedMoves) {
         const newBoard = board.makeMove(move)
 
-        // Repetition check in root loop (completely avoid if repeated 3 times already)
+        // Repetition check in root loop (completely avoid if repeated 3 times already AND AI is the attacking side)
         if (this.repetitionCandidates.size > 0) {
           const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
           if (this.repetitionCandidates.has(nextFen)) {
-            const repetitionPenalty = board.sideToMove === 'w' ? -999999 : 999999
-            if (board.sideToMove === 'w') {
-              if (repetitionPenalty > currentIterBestScore) {
-                currentIterBestScore = repetitionPenalty
-                currentIterBestMove = move
+            if (this._isAttackingMove(board, move, newBoard, board.sideToMove)) {
+              const repetitionPenalty = board.sideToMove === 'w' ? -999999 : 999999
+              if (board.sideToMove === 'w') {
+                if (repetitionPenalty > currentIterBestScore) {
+                  currentIterBestScore = repetitionPenalty
+                  currentIterBestMove = move
+                }
+              } else {
+                if (repetitionPenalty < currentIterBestScore) {
+                  currentIterBestScore = repetitionPenalty
+                  currentIterBestMove = move
+                }
               }
-            } else {
-              if (repetitionPenalty < currentIterBestScore) {
-                currentIterBestScore = repetitionPenalty
-                currentIterBestMove = move
-              }
+              continue
             }
-            continue
           }
         }
 
@@ -154,14 +156,16 @@ export class AlphaBetaSearch {
       for (const move of orderedMoves) {
         const newBoard = board.makeMove(move)
 
-        // Repetition check: if this move leads to a position that happened in the game >= 3 times, completely avoid it.
+        // Repetition check: if this move leads to a position that happened in the game >= 3 times AND AI is attacking, completely avoid it.
         if (this.repetitionCandidates.size > 0) {
           const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
           if (this.repetitionCandidates.has(nextFen)) {
-            // Penalize repetition extremely heavily (completely avoid)
-            const repetitionPenalty = -999999 
-            maxEval = Math.max(maxEval, repetitionPenalty)
-            continue
+            if (this._isAttackingMove(board, move, newBoard, board.sideToMove)) {
+              // Penalize repetition extremely heavily (completely avoid)
+              const repetitionPenalty = -999999 
+              maxEval = Math.max(maxEval, repetitionPenalty)
+              continue
+            }
           }
         }
 
@@ -176,13 +180,15 @@ export class AlphaBetaSearch {
       for (const move of orderedMoves) {
         const newBoard = board.makeMove(move)
 
-        // Repetition check
+        // Repetition check: if this move leads to a position that happened in the game >= 3 times AND AI is attacking, completely avoid it.
         if (this.repetitionCandidates.size > 0) {
           const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
           if (this.repetitionCandidates.has(nextFen)) {
-            const repetitionPenalty = 999999
-            minEval = Math.min(minEval, repetitionPenalty)
-            continue
+            if (this._isAttackingMove(board, move, newBoard, board.sideToMove)) {
+              const repetitionPenalty = 999999
+              minEval = Math.min(minEval, repetitionPenalty)
+              continue
+            }
           }
         }
 
@@ -276,5 +282,40 @@ export class AlphaBetaSearch {
   private _getPieceValue(piece: PieceType): number {
     if (piece === null) return 0
     return Evaluator.PIECE_VALUES[piece.toUpperCase()] || 0
+  }
+
+  private _isThreateningMajorPiece(board: Board, side: 'w' | 'b'): boolean {
+    const tempBoard = new Board()
+    tempBoard.squares = board.squares.map(row => [...row])
+    tempBoard.sideToMove = side
+
+    const legalMoves = tempBoard.generateLegalMoves()
+    for (const move of legalMoves) {
+      const targetPiece = tempBoard.getPiece(move.to_row, move.to_col)
+      if (targetPiece !== null) {
+        const type = targetPiece.toUpperCase()
+        // R: Chariot (车), H: Horse (马), C: Cannon (炮)
+        if (type === 'R' || type === 'H' || type === 'C') {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  private _isAttackingMove(board: Board, move: Move, newBoard: Board, side: 'w' | 'b'): boolean {
+    const opponent = side === 'w' ? 'b' : 'w'
+    
+    // 1. General check (将军)
+    if (newBoard.isInCheck(opponent)) {
+      return true
+    }
+    
+    // 2. Threaten opponent's major pieces (捉子 - 车/马/炮)
+    if (this._isThreateningMajorPiece(newBoard, side)) {
+      return true
+    }
+    
+    return false
   }
 }
