@@ -127,3 +127,31 @@ export async function pingServer(): Promise<{ status: string; timestamp?: string
   }
   return res.json()
 }
+
+export async function requestAiEvaluationFromServer(pen: string): Promise<number | null> {
+  const fen = normalizeFenForEngine(pen)
+  const url = `${getBackendUrl()}/api/evaluate`
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fen }),
+    })
+
+    if (!res.ok) {
+      return null
+    }
+
+    const result = await res.json()
+    const parsedEvaluation = typeof result.evaluation === 'number'
+      ? result.evaluation
+      : result.evaluation != null
+        ? parseFloat(result.evaluation)
+        : null
+
+    return isNaN(parsedEvaluation as any) ? null : parsedEvaluation
+  } catch (err) {
+    return null
+  }
+}

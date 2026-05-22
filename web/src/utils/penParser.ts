@@ -208,7 +208,9 @@ export function isNotableMove(
     return ch ? getPieceValue(ch) >= 4 : false
   })
 
-  if (valuableThreats.length >= 2) {
+  // To reduce frequency, a fork is only notable if it threatens at least one Rook, OR if it threatens 3+ valuable pieces.
+  const hasRookThreat = valuableThreats.some(p => p.displayName === '车')
+  if ((valuableThreats.length >= 2 && hasRookThreat) || valuableThreats.length >= 3) {
     const names = valuableThreats.map(p => p.displayName).join('')
     return { notable: true, reason: `捉双${names}` }
   }

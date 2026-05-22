@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react'
 import type { TacticalSnapshot } from '../types/gameSession'
 import { loadSnapshots, updateSnapshotCoaching, clearSnapshots, deleteSnapshot } from '../storage/snapshotStore'
 import { TacticalSnapshotModal } from './TacticalSnapshotModal'
+import { EvaluationBar } from './EvaluationBar'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
   { value: 'RED', label: '红方（先手）' },
@@ -409,6 +410,16 @@ export function ChessGame({
                 </button>
               </div>
             )}
+            
+            <EvaluationBar 
+              pen={replay.isReplaying 
+                ? (replay.currentPly === 0 ? (activeSession.initialPen ?? 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR') : moveHistory[replay.currentPly - 1].penCode)
+                : activeSession.positionPen
+              }
+              playerSide={playerSide}
+              onShowExplanation={onShowExplanation}
+            />
+
             <div className={`board-frame ${boardGlow === 'positive' ? 'glow-positive' : boardGlow === 'negative' ? 'glow-negative' : ''}`} data-tour="board">
               <canvas
                 ref={canvasRef}

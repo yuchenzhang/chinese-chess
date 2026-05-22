@@ -1559,30 +1559,40 @@
     0 0 0 1px rgba(255, 255, 255, 0.05);
   font-family: inherit;
   color: var(--text, #ffffff);
-  font-size: 0.825rem;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-radius: 16px;
+  font-size: 1.1rem;
   font-weight: 500;
-  white-space: nowrap;
-  pointer-events: none; /* Let all clicks pass through empty areas/text to the board underneath */
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  color: #fff;
+  z-index: 100;
+  pointer-events: none; /* Let clicks pass through the bubble body to the board */
+  animation: softBubblePopIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .soft-bubble.slide-up {
-  bottom: 16px;
-  animation: softBubbleSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  top: auto;
+  bottom: 8%;
+  transform: translate(-50%, 0);
 }
 
 .soft-bubble.slide-down {
-  top: 16px;
-  animation: softBubbleSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  top: 8%;
+  transform: translate(-50%, 0);
 }
 
 .soft-bubble.glow-red {
   border: 1px solid rgba(239, 68, 68, 0.4);
-  background: rgba(30, 16, 16, 0.55);
+  background: rgba(34, 24, 14, 0.55);
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.35),
-    0 0 12px rgba(239, 68, 68, 0.2);
+    0 0 12px rgba(239, 68, 68, 0.25);
 }
 
 .soft-bubble.glow-amber {
@@ -1604,25 +1614,28 @@
 .soft-bubble-text {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
 }
 
 .soft-bubble-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-left: 1px solid rgba(255, 255, 255, 0.15);
-  padding-left: 10px;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding-top: 12px;
   pointer-events: auto; /* Enable clicks only on the action area/buttons */
 }
 
 .btn-soft-action {
   background: none;
   border: none;
-  font-size: 0.775rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 8px 24px;
   border-radius: 9999px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1822,4 +1835,85 @@
   100% {
     transform: scale(1) translateY(0);
   }
+}
+
+/* ==========================================================================
+   Evaluation Bar
+   ========================================================================== */
+
+.evaluation-bar-container {
+  width: 100%;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.evaluation-bar-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.evaluation-bar-fill {
+  height: 100%;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.red-fill {
+  background: #ef4444; /* tailwind red-500 */
+}
+
+.black-fill {
+  background: #3b82f6; /* using blue/dark for black side */
+}
+
+.evaluation-bar-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.evaluation-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.eval-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.red-label {
+  color: #f87171;
+}
+
+.black-label {
+  color: #60a5fa;
+}
+
+.eval-score {
+  background: rgba(255,255,255,0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+}
+
+.eval-info-btn:hover {
+  opacity: 1 !important;
 }

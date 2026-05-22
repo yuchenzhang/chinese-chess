@@ -199,6 +199,24 @@ export function EngineExplanationPage({ onBack }: EngineExplanationPageProps) {
   - \`think_time\`: 决策所消耗的秒数。
   - \`nodes_searched\`: 搜索过程中遍历评估的局面节点总数。
 
+### 接口 3: 纯局势评估 (进度条使用)
+* **请求路径**: \`POST /api/evaluate\`
+* **接口用意**: 仅对当前局面进行打分，无需返回走法，专供前端实时更新局势进度条使用。
+* **请求体数据结构 (JSON)**:
+\`\`\`json
+{
+  "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w"
+}
+\`\`\`
+* **返回数据结构 (JSON)**:
+\`\`\`json
+{
+  "evaluation": 150
+}
+\`\`\`
+* **字段说明**:
+  - \`evaluation\`: 对当前局面的分数评估（以红方视角为基准，正数表示红优，负数表示黑优）。
+
 ## 3. 算法实现与性能建议
 - **核心搜索**: 请使用带有 **Alpha-Beta 剪枝 (Alpha-Beta Pruning)** 的极大极小搜索树算法。
 - **性能硬化**:
