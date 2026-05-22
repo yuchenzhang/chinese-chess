@@ -202,6 +202,10 @@ export class AlphaBetaSearch {
   }
 
   private _quiescenceSearch(board: Board, alpha: number, beta: number, depth: number = 0): number {
+    if ((Date.now() / 1000) - this.startTime > this.timeLimit) {
+      return this.evaluator.evaluate(board)
+    }
+
     if (depth > 4) {
       return this.evaluator.evaluate(board)
     }
@@ -248,12 +252,6 @@ export class AlphaBetaSearch {
         const attackerValue = this._getPieceValue(board.getPiece(move.from_row, move.from_col))
         const victimValue = this._getPieceValue(target)
         score += victimValue * 10 - attackerValue
-      }
-      
-      const newBoard = board.makeMove(move)
-      const opponent = board.sideToMove === 'w' ? 'b' : 'w'
-      if (newBoard.isInCheck(opponent)) {
-        score += 500
       }
       
       scores.set(move, score)
