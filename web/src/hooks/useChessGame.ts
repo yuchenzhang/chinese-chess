@@ -45,6 +45,9 @@ export interface UseChessGameResult {
   patchActiveSession: (patch: Partial<GameSession>) => void
   startSnapshotPractice: (snapshot: TacticalSnapshot) => void
   exitSnapshotPractice: () => void
+  pendingSnapshot: TacticalSnapshot | null
+  confirmPendingSnapshot: () => void
+  cancelPendingSnapshot: () => void
 }
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
@@ -53,35 +56,79 @@ import { getEngineTurn } from '../utils/zhChessEngine'
 import { moveToNotation } from '../utils/notation'
 import { getPieceAtPosition, isNotableMove } from '../utils/penParser'
 
-const getBoardConfig = () => {
+const getBoardConfig = (isCoachingActive = false) => {
   if (typeof window === 'undefined') return { size: 720, padding: 40 };
   const width = window.innerWidth;
-  if (width < 768) {
-    // 移动端：极小化内边距 (8px)，使棋子尽可能占据全宽
-    // 棋子大小 = (size - 2 * padding) / 9
-    // 原 padding 15 -> 8, pieces will be much larger
-    const size = width; // 占满屏幕宽度
-    return { size, padding: 8 };
+  const height = window.innerHeight;
+
+  let maxSize = 720;
+  let padding = 40;
+
+  if (width < 900) {
+    // 移动端 (与 App.css 900px 媒体查询对齐)
+    padding = 8;
+    // vertical budget: Header (~130px) + Mobile Actions (~90px) + CapturedPieces (~60px) + gaps + Coaching Banner (if active, ~60px)
+    const verticalBudget = isCoachingActive ? 380 : 320;
+    const maxV = height - verticalBudget;
+    const maxH = width - 24; // 左右各留 12px 的呼吸安全空间
+    maxSize = Math.min(720, maxH, maxV);
+  } else if (width < 1200) {
+    // 中屏/平板端 (上下堆叠布局)
+    padding = 24;
+    // vertical budget: Header (~80px) + CapturedPieces (~60px) + Layout Padding (~48px) + gaps + Coaching Banner (if active, ~60px)
+    const verticalBudget = isCoachingActive ? 290 : 230;
+    const maxV = height - verticalBudget;
+    const maxH = width - 48; // 左右各留 24px
+    maxSize = Math.min(720, maxH, maxV);
+  } else {
+    // 宽屏桌面端 (左右布局)
+    padding = 40;
+    // 左右布局中，棋盘最大可用宽度：总宽度减去侧边栏宽度 380px、外边距/间距 (左右 padding 64px + 间距 32px + 预留安全 24px = 120px)
+    const maxH = width - 500;
+    // vertical budget: Header (~80px) + CapturedPieces (~60px) + Layout Padding (~64px) + gaps + Coaching Banner (if active, ~60px)
+    const verticalBudget = isCoachingActive ? 310 : 250;
+    const maxV = height - verticalBudget;
+    maxSize = Math.min(720, maxH, maxV);
   }
-  return { size: 720, padding: 40 };
+
+  // 保证合理的最小棋盘尺寸
+  const size = Math.max(280, maxSize);
+  return { size, padding };
 };
 
 const MAX_AI_RETRIES = 3
 
 export function useChessGame(): UseChessGameResult & { boardSize: number; boardPadding: number } {
-  const [boardConfig] = useState(getBoardConfig);
-  const { size: BOARD_SIZE, padding: BOARD_PADDING } = boardConfig;
-
   const initialStore = useRef(loadStore())
   const [sessions, setSessions] = useState<GameSession[]>(initialStore.current.sessions)
   const [activeSessionId, setActiveSessionId] = useState(
     initialStore.current.activeSessionId ?? initialStore.current.sessions[0].id,
   )
+
+  const activeSession =
+    sessions.find((s) => s.id === activeSessionId) ?? sessions[0]
+
+  const isCoachingActive = !!(activeSession?.isCoaching && activeSession?.coachingInstruction);
+
+  const [boardConfig, setBoardConfig] = useState(() => getBoardConfig(isCoachingActive));
+
+  useEffect(() => {
+    const handleResize = () => {
+      setBoardConfig(getBoardConfig(isCoachingActive));
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isCoachingActive, activeSessionId]);
+
+  const { size: BOARD_SIZE, padding: BOARD_PADDING } = boardConfig;
+
   const [aiThinking, setAiThinking] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [lastAiPrompt, setLastAiPrompt] = useState<string | null>(null)
   const [lastAiResponse, setLastAiResponse] = useState<string | null>(null)
   const [keyPieceAlert, setKeyPieceAlert] = useState<{ pieceName: string } | null>(null)
+  const [pendingSnapshot, setPendingSnapshot] = useState<TacticalSnapshot | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<ZhChess | null>(null)
@@ -97,9 +144,6 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
   activeSessionIdRef.current = activeSessionId
   sessionsRef.current = sessions
-
-  const activeSession =
-    sessions.find((s) => s.id === activeSessionId) ?? sessions[0]
 
   const persist = useCallback((nextSessions: GameSession[], nextActiveId: string) => {
     setSessions(nextSessions)
@@ -136,6 +180,24 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     })
   }, [])
 
+  const confirmPendingSnapshot = useCallback(() => {
+    if (!pendingSnapshot) return
+    const gameId = pendingSnapshot.gameId
+    lastCapturedMoveIndexRef.current[gameId] = pendingSnapshot.triggerMoveIndex
+
+    addSnapshot(pendingSnapshot)
+    window.dispatchEvent(new CustomEvent('chess-snapshots-changed', { detail: { snapshot: pendingSnapshot } }))
+    setPendingSnapshot(null)
+    console.log('[象棋·错题本] 用户确认录入，成功添加快照！')
+  }, [pendingSnapshot])
+
+  const cancelPendingSnapshot = useCallback(() => {
+    if (pendingSnapshot) {
+      console.log('[象棋·错题本] 快照忽略/超时自动关闭:', pendingSnapshot.triggerReason)
+      setPendingSnapshot(null)
+    }
+  }, [pendingSnapshot])
+
   const captureSnapshot = useCallback((
     session: GameSession,
     type: 'positive' | 'negative',
@@ -143,14 +205,16 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     reason: string
   ) => {
     const gameId = session.id
+    if (gameId.startsWith('practice-')) {
+      console.log('[象棋·错题本] 练习模式下不捕获快照')
+      return
+    }
+
     const cooldownIdx = lastCapturedMoveIndexRef.current[gameId]
     if (cooldownIdx !== undefined && triggerMoveIndex - cooldownIdx < 6) {
       console.log('[象棋·错题本] 处于 6 步冷却期，忽略当前触发')
       return
     }
-
-    // Record the trigger index for cooldown
-    lastCapturedMoveIndexRef.current[gameId] = triggerMoveIndex
 
     // Extract last 10 plies ending at triggerMoveIndex
     const startIndex = Math.max(0, triggerMoveIndex - 9)
@@ -183,10 +247,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       startPen,
     }
 
-    // Add to store
-    addSnapshot(snapshot)
-    // Dispatch a custom event to notify components that snapshots changed
-    window.dispatchEvent(new CustomEvent('chess-snapshots-changed'))
+    setPendingSnapshot(snapshot)
   }, [])
 
   const startSnapshotPractice = useCallback((snapshot: TacticalSnapshot) => {
@@ -988,6 +1049,9 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     patchActiveSession,
     startSnapshotPractice,
     exitSnapshotPractice,
+    pendingSnapshot,
+    confirmPendingSnapshot,
+    cancelPendingSnapshot,
     boardSize: BOARD_SIZE,
     boardPadding: BOARD_PADDING,
   }

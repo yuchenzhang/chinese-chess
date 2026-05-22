@@ -53,6 +53,14 @@ export function clearSnapshots(): TacticalSnapshot[] {
   return []
 }
 
+export function deleteSnapshot(id: string): TacticalSnapshot[] {
+  const current = loadSnapshots()
+  const next = current.filter((s) => s.id !== id)
+  saveSnapshots(next)
+  console.log('[象棋·错题本] 成功删除瞬间！ID:', id)
+  return next
+}
+
 export interface ImportCoachingItem {
   id: string
   hint: string

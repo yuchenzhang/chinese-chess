@@ -689,6 +689,20 @@
   margin-top: 0.5rem;
 }
 
+@media (max-width: 1200px) {
+  .layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 2rem;
+    padding: 1.5rem;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-width: 720px; /* Align neatly with the centered chessboard */
+  }
+}
+
 @media (max-width: 900px) {
   :root {
     font-size: 18px; /* 整体字体基准放大 */
@@ -775,7 +789,8 @@
   .board-frame {
     border-radius: 0; /* 手机端取消棋盘圆角以适应边缘 */
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    width: 100vw;
+    width: fit-content;
+    margin: 0 auto;
   }
 
   .board-area {
@@ -1291,3 +1306,381 @@
   margin-top: 40px;
   opacity: 0.8;
 }
+
+/* ==========================================================================
+   Real-Time Tactical Snapshot Toast Notification & Interactive Effects
+   ========================================================================== */
+
+@keyframes toastSlideDown {
+  0% {
+    transform: translate(-50%, -32px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toastFadeOut {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -16px) scale(0.94);
+  }
+}
+
+.tactical-toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 92vw);
+  z-index: 9999;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: toastSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.tactical-toast.positive {
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 28px rgba(16, 185, 129, 0.2);
+  background: linear-gradient(135deg, rgba(16, 28, 23, 0.96) 0%, rgba(22, 38, 30, 0.94) 100%);
+}
+
+.tactical-toast.negative {
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 28px rgba(239, 68, 68, 0.2);
+  background: linear-gradient(135deg, rgba(32, 20, 20, 0.96) 0%, rgba(42, 26, 26, 0.94) 100%);
+}
+
+.tactical-toast.fade-out {
+  animation: toastFadeOut 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-badge {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.toast-badge.positive {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.3);
+}
+
+.toast-badge.negative {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.3);
+}
+
+.toast-content {
+  flex: 1;
+  text-align: left;
+}
+
+.toast-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.toast-desc {
+  margin: 4px 0 0 0;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.toast-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toast-close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Linear Progress Bar */
+.toast-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  animation: toastProgress 4.5s linear forwards;
+}
+
+.toast-progress-bar.positive {
+  background: linear-gradient(90deg, #10b981, #6ee7b7);
+}
+
+.toast-progress-bar.negative {
+  background: linear-gradient(90deg, #f87171, #ef4444);
+}
+
+.tactical-toast:hover .toast-progress-bar {
+  animation-play-state: paused;
+}
+
+@keyframes toastProgress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+/* ==========================================================================
+   Chessboard Neon Glow Effects (Snapshot Captured Ripple)
+   ========================================================================== */
+
+.board-frame {
+  transition: box-shadow 0.3s ease;
+}
+
+.board-frame.glow-positive {
+  animation: boardGlowPositiveAnimation 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.board-frame.glow-negative {
+  animation: boardGlowNegativeAnimation 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes boardGlowPositiveAnimation {
+  0% {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 5px rgba(16, 185, 129, 0.8), 0 0 35px rgba(16, 185, 129, 0.7);
+  }
+  50% {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 7px rgba(16, 185, 129, 0.95), 0 0 50px rgba(16, 185, 129, 0.85);
+  }
+  100% {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+}
+
+@keyframes boardGlowNegativeAnimation {
+  0% {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 5px rgba(239, 68, 68, 0.8), 0 0 35px rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 7px rgba(239, 68, 68, 0.95), 0 0 50px rgba(239, 68, 68, 0.85);
+  }
+  100% {
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* ==========================================================================
+   Sidebar Tactical Notebook Flash Accent
+   ========================================================================== */
+
+.card {
+  transition: all 0.4s ease;
+}
+
+.card.sidebar-flash {
+  animation: sidebarCardFlashAnimation 2.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes sidebarCardFlashAnimation {
+  0% {
+    border-color: rgba(245, 158, 11, 0.85);
+    box-shadow: 0 0 24px rgba(245, 158, 11, 0.35);
+    background: rgba(45, 38, 28, 0.95);
+  }
+  50% {
+    border-color: rgba(245, 158, 11, 1);
+    box-shadow: 0 0 36px rgba(245, 158, 11, 0.55);
+    background: rgba(55, 45, 31, 0.98);
+  }
+  100% {
+    border-color: var(--border);
+    box-shadow: none;
+    background: var(--surface);
+  }
+}
+
+/* ==========================================================================
+   Soft Reminder Bubbles (Pointer Event Pass-through & Glassmorphic Pills)
+   ========================================================================== */
+
+.soft-bubble {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(22, 22, 22, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 14px 6px 16px;
+  border-radius: 9999px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  font-family: inherit;
+  color: var(--text, #ffffff);
+  font-size: 0.825rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none; /* Let all clicks pass through empty areas/text to the board underneath */
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.soft-bubble.slide-up {
+  bottom: 16px;
+  animation: softBubbleSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.soft-bubble.slide-down {
+  top: 16px;
+  animation: softBubbleSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.soft-bubble.glow-red {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(30, 16, 16, 0.55);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 12px rgba(239, 68, 68, 0.2);
+}
+
+.soft-bubble.glow-amber {
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(34, 24, 14, 0.55);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.soft-bubble.glow-green {
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  background: rgba(14, 28, 18, 0.55);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 12px rgba(34, 197, 94, 0.2);
+}
+
+.soft-bubble-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.soft-bubble-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  padding-left: 10px;
+  pointer-events: auto; /* Enable clicks only on the action area/buttons */
+}
+
+.btn-soft-action {
+  background: none;
+  border: none;
+  font-size: 0.775rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.2;
+}
+
+.btn-soft-action.primary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.btn-soft-action.primary:hover {
+  background: #fff;
+  color: #000;
+}
+
+.btn-soft-action.danger {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ff8a8a;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-soft-action.danger:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+
+.btn-soft-action.secondary {
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+}
+
+.btn-soft-action.secondary:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@keyframes softBubbleSlideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes softBubbleSlideDown {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+

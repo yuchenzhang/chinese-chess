@@ -9,7 +9,7 @@ import { CapturedPieces } from './CapturedPieces'
 import buildInfo from '../build-info.json'
 import { useState, useEffect } from 'react'
 import type { TacticalSnapshot } from '../types/gameSession'
-import { loadSnapshots, updateSnapshotCoaching, clearSnapshots } from '../storage/snapshotStore'
+import { loadSnapshots, updateSnapshotCoaching, clearSnapshots, deleteSnapshot } from '../storage/snapshotStore'
 import { TacticalSnapshotModal } from './TacticalSnapshotModal'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
@@ -52,9 +52,12 @@ export function ChessGame({
     deleteSession,
     renameSession,
     patchActiveSession,
-    boardSize,
     startSnapshotPractice,
     exitSnapshotPractice,
+    pendingSnapshot,
+    confirmPendingSnapshot,
+    cancelPendingSnapshot,
+    boardSize,
   } = useChessGame()
 
   const [showSettings, setShowSettings] = useState(false)
@@ -62,10 +65,86 @@ export function ChessGame({
   const [activeModalSnapshot, setActiveModalSnapshot] = useState<TacticalSnapshot | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [importText, setImportText] = useState('')
+  const [activeToast, setActiveToast] = useState<{ id: string; type: 'positive' | 'negative'; message: string; subtext: string; isFadingOut: boolean } | null>(null)
+  const [isToastHovered, setIsToastHovered] = useState(false)
+  const [boardGlow, setBoardGlow] = useState<'positive' | 'negative' | null>(null)
+  const [sidebarFlash, setSidebarFlash] = useState(false)
+
+  // Handle auto-dismiss and fade-out timer
+  useEffect(() => {
+    if (!activeToast || isToastHovered) return
+    
+    const fadeTimer = setTimeout(() => {
+      setActiveToast(prev => prev ? { ...prev, isFadingOut: true } : null)
+    }, 4500)
+
+    const removeTimer = setTimeout(() => {
+      setActiveToast(null)
+    }, 4850)
+
+    return () => {
+      clearTimeout(fadeTimer)
+      clearTimeout(removeTimer)
+    }
+  }, [activeToast, isToastHovered])
+
+  // Auto-dismiss key piece regret warning after 5 seconds
+  useEffect(() => {
+    if (keyPieceAlert) {
+      const timer = setTimeout(() => {
+        clearKeyPieceAlert()
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [keyPieceAlert, clearKeyPieceAlert])
+
+  // Auto-dismiss pending snapshot proposal after 5 seconds
+  useEffect(() => {
+    if (pendingSnapshot) {
+      const timer = setTimeout(() => {
+        cancelPendingSnapshot()
+      }, 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [pendingSnapshot, cancelPendingSnapshot])
+
+  const closeToast = () => {
+    if (!activeToast) return
+    setActiveToast(prev => prev ? { ...prev, isFadingOut: true } : null)
+    setTimeout(() => {
+      setActiveToast(null)
+    }, 350)
+  }
 
   useEffect(() => {
-    const handleSnapshotsChanged = () => {
-      setSnapshots(loadSnapshots())
+    const handleSnapshotsChanged = (e: Event) => {
+      const snapList = loadSnapshots()
+      setSnapshots(snapList)
+
+      const customEvent = e as CustomEvent<{ snapshot?: TacticalSnapshot }>
+      if (customEvent.detail?.snapshot) {
+        const snap = customEvent.detail.snapshot
+        console.log('[象棋·错题本] 收到新战术瞬间事件:', snap)
+        
+        // Trigger Toast Alert
+        setActiveToast({
+          id: snap.id,
+          type: snap.type,
+          message: snap.triggerReason,
+          subtext: `已自动录入战术错题本 (${snapList.length}/30)`,
+          isFadingOut: false
+        })
+
+        // Trigger Chessboard Neon Glow Ripple
+        setBoardGlow(snap.type)
+        setTimeout(() => setBoardGlow(null), 2500)
+
+        // Trigger Sidebar Highlight Flash
+        setSidebarFlash(true)
+        setTimeout(() => setSidebarFlash(false), 2500)
+      } else {
+        console.log('[象棋·错题本] 收到 snapshots-changed 事件，未携带 payload')
+      }
     }
     window.addEventListener('chess-snapshots-changed', handleSnapshotsChanged)
     return () => {
@@ -169,6 +248,14 @@ export function ChessGame({
     }
   }
 
+  const handleDeleteSingleSnapshot = (id: string) => {
+    if (window.confirm('您确定要从“战术错题本”中删除这个瞬间吗？此操作不可恢复。')) {
+      const updated = deleteSnapshot(id)
+      setSnapshots(updated)
+      window.dispatchEvent(new CustomEvent('chess-snapshots-changed'))
+    }
+  }
+
   const replay = useReplay(activeSession, gameRef, canvasRef)
 
   const canChangeSide = activeSession.status === 'setup' || !!winner
@@ -192,6 +279,25 @@ export function ChessGame({
 
   return (
     <div className="app">
+      {activeToast && (
+        <div 
+          className={`tactical-toast ${activeToast.type} ${activeToast.isFadingOut ? 'fade-out' : ''}`}
+          onMouseEnter={() => setIsToastHovered(true)}
+          onMouseLeave={() => setIsToastHovered(false)}
+        >
+          <div className={`toast-badge ${activeToast.type}`}>
+            {activeToast.type === 'positive' ? '妙' : '殆'}
+          </div>
+          <div className="toast-content">
+            <h4 className="toast-title">{activeToast.message}</h4>
+            <p className="toast-desc">{activeToast.subtext}</p>
+          </div>
+          <button type="button" className="toast-close" onClick={closeToast} aria-label="关闭提示">
+            &times;
+          </button>
+          <div className={`toast-progress-bar ${activeToast.type}`} />
+        </div>
+      )}
       <header className="header">
         <div className="brand" data-tour="brand">
           <span className="brand-mark" aria-hidden>
@@ -303,7 +409,7 @@ export function ChessGame({
                 </button>
               </div>
             )}
-            <div className="board-frame" data-tour="board">
+            <div className={`board-frame ${boardGlow === 'positive' ? 'glow-positive' : boardGlow === 'negative' ? 'glow-negative' : ''}`} data-tour="board">
               <canvas
                 ref={canvasRef}
                 width={boardSize}
@@ -324,40 +430,48 @@ export function ChessGame({
               )}
               
               {keyPieceAlert && !replay.isReplaying && (
-                <div className="coaching-overlay" style={{
-                  position: 'absolute',
-                  top: '30%',
-                  left: '10%',
-                  right: '10%',
-                  background: 'rgba(255, 255, 255, 0.98)',
-                  backdropFilter: 'blur(8px)',
-                  padding: '24px',
-                  borderRadius: '16px',
-                  boxShadow: '0 12px 48px rgba(0,0,0,0.3)',
-                  border: '2px solid var(--error, #e11d48)',
-                  zIndex: 100,
-                  textAlign: 'center',
-                }}>
-                  <h3 style={{ margin: '0 0 16px', color: 'var(--error, #e11d48)', fontSize: '1.4rem' }}>
-                    ⚠️ 注意
-                  </h3>
-                  <p style={{ fontSize: '1.1rem', marginBottom: '24px', color: '#1a1a1a' }}>
-                    你的<strong>{keyPieceAlert.pieceName}</strong>被吃掉了！是否需要悔棋纠正错误？
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+                <div className="soft-bubble slide-up glow-red" role="status">
+                  <span className="soft-bubble-text">
+                    ⚠️ 你的<strong>{keyPieceAlert.pieceName}</strong>被吃，需要悔棋吗？
+                  </span>
+                  <div className="soft-bubble-actions">
                     <button 
-                      className="btn primary" 
-                      style={{ padding: '8px 24px', borderRadius: '20px', backgroundColor: 'var(--error, #e11d48)', borderColor: 'var(--error, #e11d48)' }}
+                      type="button"
+                      className="btn-soft-action danger" 
                       onClick={undoMove}
                     >
                       悔棋
                     </button>
                     <button 
-                      className="btn" 
-                      style={{ padding: '8px 24px', borderRadius: '20px' }}
+                      type="button"
+                      className="btn-soft-action secondary" 
                       onClick={clearKeyPieceAlert}
                     >
                       继续
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {pendingSnapshot && !replay.isReplaying && (
+                <div className={`soft-bubble slide-down ${pendingSnapshot.type === 'positive' ? 'glow-green' : 'glow-amber'}`} role="status">
+                  <span className="soft-bubble-text">
+                    {pendingSnapshot.type === 'positive' ? '👑' : '⚠️'} 检测到对局分水岭！录入战术本？
+                  </span>
+                  <div className="soft-bubble-actions">
+                    <button 
+                      type="button"
+                      className="btn-soft-action primary" 
+                      onClick={confirmPendingSnapshot}
+                    >
+                      录入
+                    </button>
+                    <button 
+                      type="button"
+                      className="btn-soft-action secondary" 
+                      onClick={cancelPendingSnapshot}
+                    >
+                      忽略
                     </button>
                   </div>
                 </div>
@@ -666,7 +780,7 @@ export function ChessGame({
             )}
           </section>
 
-          <section className="card" data-tour="tactical-snapshots" style={{ marginTop: '1.25rem' }}>
+          <section className={`card ${sidebarFlash ? 'sidebar-flash' : ''}`} data-tour="tactical-snapshots" style={{ marginTop: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0 }}>战术错题本 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>({snapshots.length}/30)</span></h2>
               {snapshots.length > 0 && (
@@ -785,23 +899,58 @@ export function ChessGame({
                           </div>
                         </div>
 
-                        {s.coachingHint && (
-                          <span 
-                            style={{ 
-                              flexShrink: 0,
-                              fontSize: '0.7rem', 
-                              backgroundColor: 'rgba(245, 158, 11, 0.15)', 
-                              color: '#fbbf24', 
-                              padding: '2px 6px', 
-                              borderRadius: '12px', 
-                              border: '1px solid rgba(245, 158, 11, 0.3)',
-                              fontWeight: '600',
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          {s.coachingHint && (
+                            <span 
+                              style={{ 
+                                fontSize: '0.7rem', 
+                                backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                                color: '#fbbf24', 
+                                padding: '2px 6px', 
+                                borderRadius: '12px', 
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                fontWeight: '600',
+                              }}
+                              title="已获得大模型教练点评"
+                            >
+                              💡 点评
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="btn-delete-snapshot"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteSingleSnapshot(s.id);
                             }}
-                            title="已获得大模型教练点评"
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'rgba(255, 255, 255, 0.3)',
+                              fontSize: '1.2rem',
+                              fontWeight: 'normal',
+                              cursor: 'pointer',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              lineHeight: 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = '#ef4444';
+                              e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = 'rgba(255, 255, 255, 0.3)';
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title="删除此瞬间"
                           >
-                            💡 点评
-                          </span>
-                        )}
+                            &times;
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
