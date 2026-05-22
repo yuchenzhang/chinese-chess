@@ -171,17 +171,22 @@ export function EngineExplanationPage({ onBack }: EngineExplanationPageProps) {
 
 ### 接口 2: 局面最佳走法搜索 (核心决策接口)
 * **请求路径**: \`POST /api/move/best\`
-* **接口用意**: 接收前端当前棋局的 FEN/PEN 局面字符串和所需的搜索深度参数，调用底层的极大极小算法与剪枝算法，推演出对当前局面最有利的一步走法。
+* **接口用意**: 接收前端当前棋局的 FEN/PEN 局面字符串、所需的搜索深度参数以及包含对局历史局面列表的 \`history\` 参数，调用底层的极大极小算法与剪枝算法，推演出对当前局面最有利的一步走法。
 * **请求体数据结构 (JSON)**:
 \`\`\`json
 {
   "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w",
-  "depth": 6
+  "depth": 6,
+  "history": [
+    "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w",
+    "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR b"
+  ]
 }
 \`\`\`
 * **字段说明**:
   - \`fen\`: 中国象棋局面 PEN/FEN 表示法（例如首字母小写表示黑方子力，大写表示红方子力，以 \`/\` 分隔 10 行棋盘；\`w\` 或 \`b\` 代表当前执子方）。
   - \`depth\`: 整型数字（如 5、6、7），指示算法搜索的最大树层级。
+  - \`history\`: 字符串数组，包含对局的历史已归一化 FEN/PEN 局面（执子方采用统一的 \`w\`/\`b\` 字符表示）。用于供引擎进行重复局面检测与循环着法规避。
 * **返回数据结构 (JSON)**:
 \`\`\`json
 {
@@ -222,7 +227,11 @@ export function EngineExplanationPage({ onBack }: EngineExplanationPageProps) {
 - **性能硬化**:
   - 中国象棋节点生成呈指数爆炸。在深层搜索（6层以上）时，请使用**置换表 (Transposition Table)** 或 Zobrist 哈希存储已搜索局面，避免重复计算。
   - 建议启用多进程（Multiprocessing）并行评估不同的主分支分支，发挥多核处理器的极限性能。
-  - 引入**静态搜索 (Quiescence Search)**，仅在深度耗尽时评估吃子链，规避“水平线效应”。`;
+  - 引入**静态搜索 (Quiescence Search)**，仅在深度耗尽时评估吃子链，规避“水平线效应”。
+- **循环重复局面与长将规避机制 (Repetition & Perpetual Check Prevention)**:
+  - **规则硬化**：中国象棋规则中，长将（Perpetual Check）与循环着法是被判负的。为了规避此死循环，请检查推演的某一步走法导致的新局面在请求参数 \`history\` 中的出现次数（\`repCount\`）。
+  - **三次重复规避（重要）**：如果在 \`history\` 中已存在相同局面（忽略步数，比较棋盘布局与执子方） $\ge 3$ 次，说明若再次走该步将导致第 4 次重复。此时，对此走子节点的静态评估应当设定极强的负奖励（如 \`-999999\` 分，即彻底规避分数）。
+  - **避让变招**：通过引入此绝对罚分，强迫决策引擎在搜索其他可行着法，在第 4 次时主动变招以避免重复走子导致僵局，大幅提高对弈的合规性与对抗乐趣。`;
 
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(PROMPT_TEXT)

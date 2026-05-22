@@ -3,7 +3,7 @@ import type { MoveRecord } from '../types/gameSession'
 import { requestAiMoveFromServer, type AiMoveResult } from './apiClient'
 import { logLlm } from './debug'
 import { loadLlmSettings } from '../storage/llmSettingsStore'
-import { type UciMoveInfo } from '../utils/uciToNotation'
+import { type UciMoveInfo, normalizeFenForEngine } from '../utils/uciToNotation'
 import { requestAiMoveFromLocal } from '../utils/engine/localEngine'
 
 export interface RequestAiMoveInput {
@@ -41,8 +41,9 @@ export async function requestAiMove(
 
   let result: AiMoveResult
 
+  const history = input.moveHistory.map(m => normalizeFenForEngine(m.penCode))
+
   if (settings.providerId === 'local-engine') {
-    const history = input.moveHistory.map(m => m.penCode)
     result = await requestAiMoveFromLocal(input.positionPen, history, 5.0, input.engineDepth)
   } else {
     result = await requestAiMoveFromServer({
@@ -52,6 +53,7 @@ export async function requestAiMove(
       positionPen: input.positionPen,
       moveSide: input.aiSide,
       depth: input.engineDepth,
+      history,
     })
   }
 

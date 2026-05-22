@@ -10,6 +10,7 @@ export class AlphaBetaSearch {
   timeLimit: number
   lastCompletedDepth: number
   history: string[] = []
+  repetitionCandidates: Set<string> = new Set()
 
   constructor(depth: number = 6) {
     this.maxDepth = depth
@@ -27,6 +28,19 @@ export class AlphaBetaSearch {
     this.lastCompletedDepth = 0
     this.history = history
 
+    // Pre-calculate repetition candidates to maximize search performance
+    const counts = new Map<string, number>()
+    for (const h of history) {
+      const pos = h.split(' ').slice(0, 2).join(' ')
+      counts.set(pos, (counts.get(pos) || 0) + 1)
+    }
+    this.repetitionCandidates = new Set<string>()
+    for (const [pos, count] of counts.entries()) {
+      if (count >= 3) {
+        this.repetitionCandidates.add(pos)
+      }
+    }
+
     const legalMoves = board.generateLegalMoves()
     if (legalMoves.length === 0) {
       if (board.isInCheck(board.sideToMove)) {
@@ -36,11 +50,8 @@ export class AlphaBetaSearch {
       }
     }
 
-    let bestMove = legalMoves[0]
-    let bestScore = board.sideToMove === 'w' ? -Infinity : Infinity
-
-    let finalBestMove = bestMove
-    let finalBestScore = bestScore
+    let finalBestMove = legalMoves[0]
+    let finalBestScore = board.sideToMove === 'w' ? -Infinity : Infinity
 
     for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
       const elapsed = (Date.now() / 1000) - this.startTime
@@ -61,22 +72,24 @@ export class AlphaBetaSearch {
       for (const move of orderedMoves) {
         const newBoard = board.makeMove(move)
 
-        // Repetition check in root loop
-        const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
-        if (this.history.some(h => h.startsWith(nextFen))) {
-          const repetitionPenalty = board.sideToMove === 'w' ? -500 : 500
-          if (board.sideToMove === 'w') {
-            if (repetitionPenalty > currentIterBestScore) {
-              currentIterBestScore = repetitionPenalty
-              currentIterBestMove = move
+        // Repetition check in root loop (completely avoid if repeated 3 times already)
+        if (this.repetitionCandidates.size > 0) {
+          const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
+          if (this.repetitionCandidates.has(nextFen)) {
+            const repetitionPenalty = board.sideToMove === 'w' ? -999999 : 999999
+            if (board.sideToMove === 'w') {
+              if (repetitionPenalty > currentIterBestScore) {
+                currentIterBestScore = repetitionPenalty
+                currentIterBestMove = move
+              }
+            } else {
+              if (repetitionPenalty < currentIterBestScore) {
+                currentIterBestScore = repetitionPenalty
+                currentIterBestMove = move
+              }
             }
-          } else {
-            if (repetitionPenalty < currentIterBestScore) {
-              currentIterBestScore = repetitionPenalty
-              currentIterBestMove = move
-            }
+            continue
           }
-          continue
         }
 
         const score = this._alphaBeta(newBoard, currentDepth - 1, alpha, beta)
@@ -141,13 +154,15 @@ export class AlphaBetaSearch {
       for (const move of orderedMoves) {
         const newBoard = board.makeMove(move)
 
-        // Repetition check: if this move leads to a position that happened in the game, penalize it.
-        const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
-        if (this.history.some(h => h.startsWith(nextFen))) {
-          // Penalize repetition (treat as a draw or worse if checking)
-          const repetitionPenalty = -500 
-          maxEval = Math.max(maxEval, repetitionPenalty)
-          continue
+        // Repetition check: if this move leads to a position that happened in the game >= 3 times, completely avoid it.
+        if (this.repetitionCandidates.size > 0) {
+          const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
+          if (this.repetitionCandidates.has(nextFen)) {
+            // Penalize repetition extremely heavily (completely avoid)
+            const repetitionPenalty = -999999 
+            maxEval = Math.max(maxEval, repetitionPenalty)
+            continue
+          }
         }
 
         const evalScore = this._alphaBeta(newBoard, depth - 1, alpha, beta)
@@ -162,11 +177,13 @@ export class AlphaBetaSearch {
         const newBoard = board.makeMove(move)
 
         // Repetition check
-        const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
-        if (this.history.some(h => h.startsWith(nextFen))) {
-          const repetitionPenalty = 500
-          minEval = Math.min(minEval, repetitionPenalty)
-          continue
+        if (this.repetitionCandidates.size > 0) {
+          const nextFen = newBoard.toFen().split(' ').slice(0, 2).join(' ')
+          if (this.repetitionCandidates.has(nextFen)) {
+            const repetitionPenalty = 999999
+            minEval = Math.min(minEval, repetitionPenalty)
+            continue
+          }
         }
 
         const evalScore = this._alphaBeta(newBoard, depth - 1, alpha, beta)

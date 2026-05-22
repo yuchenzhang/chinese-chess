@@ -1,8 +1,14 @@
 {
   "date": "2026-05-22",
-  "time": "16:13",
-  "full_time": "2026-05-22 16:13:50",
+  "time": "23:35",
+  "full_time": "2026-05-22 23:35:08",
   "last_commits": [
+  {
+    "hash": "a7b95cb",
+    "message": "feat: 局势评估进度条与分水岭检测优化",
+    "author": "yc",
+    "date": "2026-05-22"
+  },
   {
     "hash": "a27be2b",
     "message": "fix: 移动端操作演示引导定位与头部导航栏显示问题",
@@ -24,12 +30,6 @@
   {
     "hash": "22ba9f9",
     "message": "feat: implement tactical snapshot (战术错题本) mechanism and interactive sandbox practice mode, remove obsolete full-game AI analysis",
-    "author": "yc",
-    "date": "2026-05-22"
-  },
-  {
-    "hash": "b03efcf",
-    "message": "feat: refactor remote engine integration & support 7-layer national master difficulty",
     "author": "yc",
     "date": "2026-05-22"
   }

@@ -21,6 +21,8 @@ export interface AiMoveRequest {
   moveSide?: 'RED' | 'BLACK'
   /** The computation depth of the engine. */
   depth?: number
+  /** Game FEN history to avoid threefold repetition / perpetual check. */
+  history?: string[]
 }
 
 export interface AiMoveResult {
@@ -83,7 +85,11 @@ export async function requestAiMoveFromServer(
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fen, depth: input.depth }),
+    body: JSON.stringify({ 
+      fen, 
+      depth: input.depth,
+      history: input.history || [],
+    }),
   })
 
   if (!res.ok) {
