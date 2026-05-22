@@ -7,7 +7,10 @@ import { SessionList } from './SessionList'
 import { ReplayControls } from './ReplayControls'
 import { CapturedPieces } from './CapturedPieces'
 import buildInfo from '../build-info.json'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import type { TacticalSnapshot } from '../types/gameSession'
+import { loadSnapshots, updateSnapshotCoaching, clearSnapshots } from '../storage/snapshotStore'
+import { TacticalSnapshotModal } from './TacticalSnapshotModal'
 
 const SIDE_OPTIONS: { value: PieceSide; label: string }[] = [
   { value: 'RED', label: '红方（先手）' },
@@ -40,7 +43,6 @@ export function ChessGame({
     lastAiResponse,
     keyPieceAlert,
     startNewGame,
-    startCoachingScenario,
     triggerAiMove,
     undoMove,
     clearKeyPieceAlert,
@@ -51,9 +53,122 @@ export function ChessGame({
     renameSession,
     patchActiveSession,
     boardSize,
+    startSnapshotPractice,
+    exitSnapshotPractice,
   } = useChessGame()
 
   const [showSettings, setShowSettings] = useState(false)
+  const [snapshots, setSnapshots] = useState<TacticalSnapshot[]>(loadSnapshots())
+  const [activeModalSnapshot, setActiveModalSnapshot] = useState<TacticalSnapshot | null>(null)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const [importText, setImportText] = useState('')
+
+  useEffect(() => {
+    const handleSnapshotsChanged = () => {
+      setSnapshots(loadSnapshots())
+    }
+    window.addEventListener('chess-snapshots-changed', handleSnapshotsChanged)
+    return () => {
+      window.removeEventListener('chess-snapshots-changed', handleSnapshotsChanged)
+    }
+  }, [])
+
+  const handleExportPrompt = () => {
+    if (snapshots.length === 0) {
+      alert('错题本中暂无战术瞬间可以导出。快去和 AI 对弈吧，吃子或局势大幅波动都会被自动记录！')
+      return
+    }
+
+    let markdown = `# 👑 中国象棋特级大师教练战术复盘请求
+
+您好！我是一名正在精进棋艺的象棋爱好者。在我的对弈中，系统自动抓取了以下关键的“分水岭瞬间（战术错题）”。
+
+每个战术瞬间都包含了触发事件以及该瞬间发生前及当时的十步完整记谱（5个回合）和局面 PEN 状态。
+
+请您扮演我的特级大师教练，为我逐一分析这些瞬间：
+1. **得失诊断**：简要分析我在这个瞬间犯了什么错误（若是失误），或抓住了什么战术机会（若是优势）。
+2. **战术要点**：在此局面下，我应该注意什么？正确的行棋方向和思路是什么？
+3. **行动指南**：请给出一句简明扼要的战术提示（1-2句话，不超过60字），帮助我在“重新练习本局”时能够获得灵感。
+
+---
+
+## ⚠️ 极其重要：格式要求 ⚠️
+为了方便我的象棋系统能够自动解析并一键载入您的大师提示，请您在给出的专业文字复盘后，**必须在回答的最末尾附带一个标准的 JSON 代码块**。JSON 的格式和结构必须如下：
+
+\`\`\`json
+{
+  "snapshots": [
+`
+
+    snapshots.forEach((s, idx) => {
+      markdown += `    {\n`
+      markdown += `      "id": "${s.id}",\n`
+      markdown += `      "hint": "大师指导意见：(在此处填入您对本瞬间的1-2句精炼实战指导意见)"\n`
+      markdown += `    }${idx === snapshots.length - 1 ? '' : ','}\n`
+    })
+
+    markdown += `  ]
+}
+\`\`\`
+
+---
+
+## 待分析的战术瞬间列表：\n\n`
+
+    snapshots.forEach((s, idx) => {
+      markdown += `### 瞬间 #${idx + 1}：[${s.type === 'positive' ? '🟢 优势瞬间' : '🔴 失误瞬间'}] ${s.triggerReason}\n`
+      markdown += `- **对局标题**: ${s.gameTitle}\n`
+      markdown += `- **瞬间 ID**: \`${s.id}\` (请务必在 JSON 中原样保留该 ID)\n`
+      markdown += `- **对局阵营**: 我执${s.playerSide === 'RED' ? '红方（先手）' : '黑方'}\n`
+      markdown += `- **触发步骤**: 第 ${s.triggerMoveIndex + 1} 步\n`
+      markdown += `- **战术轨迹（前10步）**:\n`
+      s.steps.forEach((step) => {
+        markdown += `  - 相对第 ${step.ply + 1} 步 [${step.side === 'RED' ? '红方' : '黑方'}]: \`${step.notation}\`${step.evaluation !== undefined ? ` (局势评估: ${step.evaluation})` : ''}\n`
+      })
+      markdown += `\n---\n\n`
+    })
+
+    navigator.clipboard.writeText(markdown)
+      .then(() => {
+        alert('🎉 象棋大师复盘提示词已复制到剪贴板！\n\n可以直接发送给大模型（如 ChatGPT, Claude, Gemini），获得点评后复制大模型返回的 JSON 代码块，在“战术错题本”中点击“导入 AI 点评”即可！')
+      })
+      .catch((err) => {
+        console.error('复制失败', err)
+        alert('复制提示词失败，请在控制台查看或重试。')
+      })
+  }
+
+  const handleImportCoaching = () => {
+    try {
+      let cleanedText = importText.trim()
+      const jsonRegex = /\{[\s\S]*\}/
+      const match = cleanedText.match(jsonRegex)
+      if (match) {
+        cleanedText = match[0]
+      }
+
+      const parsed = JSON.parse(cleanedText)
+      if (!parsed || typeof parsed !== 'object') {
+        throw new Error('解析出来的内容不是有效的 JSON 对象')
+      }
+
+      if (!parsed.snapshots || !Array.isArray(parsed.snapshots)) {
+        throw new Error('JSON 格式错误：必须包含 "snapshots" 数组')
+      }
+
+      const updated = updateSnapshotCoaching(parsed)
+      setSnapshots(updated)
+      setShowImportDialog(false)
+      setImportText('')
+      
+      window.dispatchEvent(new CustomEvent('chess-snapshots-changed'))
+      alert(`🎉 成功导入点评！大师指导意见已同步到对应的战术瞬间中。`)
+    } catch (err) {
+      console.error('[导入 AI 点评] 失败', err)
+      alert(`❌ 导入失败。\n原因：${err instanceof Error ? err.message : 'JSON 语法错误'}`)
+    }
+  }
+
   const replay = useReplay(activeSession, gameRef, canvasRef)
 
   const canChangeSide = activeSession.status === 'setup' || !!winner
@@ -131,6 +246,63 @@ export function ChessGame({
       <main className="layout">
         <section className="board-panel" aria-label="棋盘">
           <div className="board-area">
+            {activeSession.isCoaching && (
+              <div 
+                className="practice-banner" 
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.2) 0%, rgba(37, 32, 25, 0.9) 100%)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  padding: '12px 20px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(217, 119, 6, 0.4)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 16px rgba(217, 119, 6, 0.1)',
+                  marginBottom: '16px',
+                  color: 'var(--text)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
+                  <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎯</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#f59e0b', fontWeight: 'bold' }}>
+                      战术沙盒练习中
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      局势由历史关键战术瞬间恢复。请找出最佳走法！
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={exitSnapshotPractice}
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    color: '#f87171',
+                    fontWeight: 'bold',
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    transition: 'all 0.2s',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.35)'
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.2)'
+                    e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)'
+                  }}
+                >
+                  🔙 退出练习
+                </button>
+              </div>
+            )}
             <div className="board-frame" data-tour="board">
               <canvas
                 ref={canvasRef}
@@ -145,65 +317,11 @@ export function ChessGame({
                   {aiThinking && !replay.isReplaying && (
                     <span className="board-blocker-text">思考中…</span>
                   )}
-                  {replay.isReplaying && !activeSession.llmAnalysis && (
+                  {replay.isReplaying && (
                     <span className="board-blocker-text">回放中</span>
                   )}
                 </div>
               )}
-              {replay.isReplaying && activeSession.llmAnalysis && (() => {
-                const isSummary = replay.currentPly === 0;
-                const annotation = activeSession.llmAnalysis.annotations.find(a => a.ply === replay.currentPly);
-                
-                if (!isSummary && !annotation) return null;
-                
-                return (
-                  <div className="llm-board-overlay" style={{
-                    position: 'absolute',
-                    top: '10%',
-                    left: '5%',
-                    right: '5%',
-                    background: 'rgba(0, 0, 0, 0.65)',
-                    backdropFilter: 'blur(4px)',
-                    WebkitBackdropFilter: 'blur(4px)',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-                    border: '1px solid var(--border)',
-                    zIndex: 30,
-                    pointerEvents: 'none',
-                    lineHeight: 1.5
-                  }}>
-                    {isSummary ? (
-                      <div>
-                        <h3 style={{ marginTop: 0, marginBottom: '8px', fontSize: '1.1rem', color: 'var(--accent)' }}>AI 教练总结</h3>
-                        <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text)' }}>{activeSession.llmAnalysis.summary.overall}</p>
-                        {activeSession.llmAnalysis.summary.main_problems?.length > 0 && (
-                          <div style={{ marginTop: '8px' }}>
-                            <strong style={{ fontSize: '0.9rem', color: 'var(--accent)' }}>主要问题：</strong>
-                            <ul style={{ margin: '4px 0 0', paddingLeft: '20px', fontSize: '0.9rem', color: 'var(--text)' }}>
-                              {activeSession.llmAnalysis.summary.main_problems.map((p, idx) => <li key={idx} style={{ marginBottom: '4px' }}>{p}</li>)}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '0.85rem', padding: '2px 8px', background: 'var(--accent)', color: '#fff', borderRadius: '12px', fontWeight: 'bold', lineHeight: 1.2 }}>
-                            {annotation!.quality}
-                          </span>
-                          {annotation!.tags?.map(tag => (
-                            <span key={tag} style={{ fontSize: '0.8rem', padding: '2px 8px', background: 'var(--surface)', color: 'var(--text-muted)', borderRadius: '12px', border: '1px solid var(--border)', lineHeight: 1.2 }}>
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                        <p style={{ margin: 0, fontSize: '1rem', color: 'var(--text)' }}>{annotation!.comment}</p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })()}
               
               {keyPieceAlert && !replay.isReplaying && (
                 <div className="coaching-overlay" style={{
@@ -323,7 +441,6 @@ export function ChessGame({
               onCreate={createSession}
               onDelete={deleteSession}
               onRename={renameSession}
-              onStartScenario={(s) => { startCoachingScenario(s); setShowSettings(false); }}
             />
           </div>
 
@@ -508,8 +625,6 @@ export function ChessGame({
             <h2>走子记录</h2>
             <ReplayControls 
               replay={replay} 
-              session={activeSession} 
-              onImportAnalysis={(analysis) => patchActiveSession({ llmAnalysis: analysis })} 
             />
             {moveHistory.length === 0 ? (
               <p className="muted">开局后每步记谱将显示于此</p>
@@ -548,6 +663,150 @@ export function ChessGame({
                   </li>
                 ))}
               </ol>
+            )}
+          </section>
+
+          <section className="card" data-tour="tactical-snapshots" style={{ marginTop: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ margin: 0 }}>战术错题本 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 'normal' }}>({snapshots.length}/30)</span></h2>
+              {snapshots.length > 0 && (
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => {
+                    if (window.confirm('您确定要清空所有的战术瞬间吗？这不可恢复。')) {
+                      const updated = clearSnapshots()
+                      setSnapshots(updated)
+                      window.dispatchEvent(new CustomEvent('chess-snapshots-changed'))
+                    }
+                  }}
+                  style={{ fontSize: '0.8rem', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  清空
+                </button>
+              )}
+            </div>
+
+            {snapshots.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '8px' }}>
+                <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem', opacity: 0.5 }}>📚</span>
+                <p style={{ margin: 0, fontSize: '0.85rem' }}>暂无记录的关键战术瞬间。</p>
+                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', opacity: 0.7 }}>在对弈中吃掉对方大子，或局面得分发生剧烈变化时将自动捕获！</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-sm primary"
+                    onClick={handleExportPrompt}
+                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                  >
+                    <span>📤</span> 导出分析提示词
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setShowImportDialog(true)}
+                    style={{ flex: 1, fontSize: '0.8rem', padding: '6px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}
+                  >
+                    <span>📥</span> 导入 AI 点评
+                  </button>
+                </div>
+
+                <div 
+                  className="snapshot-list" 
+                  style={{ 
+                    maxHeight: '280px', 
+                    overflowY: 'auto', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '0.5rem',
+                    paddingRight: '4px'
+                  }}
+                >
+                  {snapshots.map((s) => {
+                    const isPositive = s.type === 'positive'
+                    return (
+                      <div
+                        key={s.id}
+                        className="snapshot-item"
+                        onClick={() => setActiveModalSnapshot(s)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          backgroundColor: 'var(--surface)',
+                          border: `1px solid ${s.coachingHint ? 'rgba(245, 158, 11, 0.25)' : 'var(--border)'}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          boxShadow: s.coachingHint ? '0 2px 8px rgba(245, 158, 11, 0.05)' : 'none',
+                          textAlign: 'left',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-1px)'
+                          e.currentTarget.style.borderColor = isPositive ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'
+                          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)'
+                          e.currentTarget.style.borderColor = s.coachingHint ? 'rgba(245, 158, 11, 0.25)' : 'var(--border)'
+                          e.currentTarget.style.backgroundColor = 'var(--surface)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                          <span
+                            style={{
+                              flexShrink: 0,
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: isPositive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              color: isPositive ? '#4ade80' : '#f87171',
+                              fontSize: '0.8rem',
+                              fontWeight: 'bold',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: `1px solid ${isPositive ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+                            }}
+                          >
+                            {isPositive ? '妙' : '殆'}
+                          </span>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text)' }}>
+                              {s.triggerReason}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {s.gameTitle} · {new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {s.coachingHint && (
+                          <span 
+                            style={{ 
+                              flexShrink: 0,
+                              fontSize: '0.7rem', 
+                              backgroundColor: 'rgba(245, 158, 11, 0.15)', 
+                              color: '#fbbf24', 
+                              padding: '2px 6px', 
+                              borderRadius: '12px', 
+                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                              fontWeight: '600',
+                            }}
+                            title="已获得大模型教练点评"
+                          >
+                            💡 点评
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             )}
           </section>
 
@@ -597,6 +856,93 @@ export function ChessGame({
           </div>
         )}
       </footer>
+      {activeModalSnapshot && (
+        <TacticalSnapshotModal
+          snapshot={activeModalSnapshot}
+          onClose={() => setActiveModalSnapshot(null)}
+          onStartPractice={startSnapshotPractice}
+        />
+      )}
+
+      {showImportDialog && (
+        <div
+          className="dialog-backdrop"
+          style={{
+            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(15, 12, 10, 0.8)',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowImportDialog(false)}
+        >
+          <div
+            className="dialog"
+            style={{
+              width: 'min(480px, 95vw)',
+              padding: '1.5rem',
+              borderRadius: '16px',
+              background: 'rgba(37, 32, 25, 0.95)',
+              border: '1px solid rgba(245, 158, 11, 0.2)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.6)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              color: 'var(--text)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: 'var(--accent)' }}>📥 导入 AI 点评数据</h3>
+              <button
+                type="button"
+                onClick={() => setShowImportDialog(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer', lineHeight: 1, padding: 0 }}
+              >
+                &times;
+              </button>
+            </div>
+
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'left' }}>
+              请将大模型分析完成后返回的完整的 JSON 代码块粘贴在下方框中，系统将自动解析、校验并匹配加载您的错题本指导。
+            </p>
+
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder='请在此处粘贴 JSON 数据。例如：&#10;{&#10;  "snapshots": [&#10;    {&#10;      "id": "...",&#10;      "hint": "..."&#10;    }&#10;  ]&#10;}'
+              style={{
+                width: '100%',
+                height: '180px',
+                borderRadius: '8px',
+                padding: '10px',
+                backgroundColor: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                fontFamily: 'monospace',
+                fontSize: '0.8rem',
+                resize: 'vertical',
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setShowImportDialog(false)}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={handleImportCoaching}
+                disabled={!importText.trim()}
+              >
+                确认导入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

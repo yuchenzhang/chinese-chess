@@ -21,6 +21,7 @@ export interface RequestAiMoveResult {
   fullPrompt?: string
   /** Raw engine response. */
   rawContent?: string
+  evaluation?: number
 }
 
 /**
@@ -58,6 +59,7 @@ export async function requestAiMove(
     move: result.move, 
     moveInfo: result.moveInfo,
     fullPrompt: result.fullPrompt, 
-    rawContent: result.rawContent 
+    rawContent: result.rawContent,
+    evaluation: result.evaluation,
   }
 }

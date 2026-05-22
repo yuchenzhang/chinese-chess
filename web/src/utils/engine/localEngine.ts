@@ -21,11 +21,18 @@ export async function requestAiMoveFromLocal(
 
       if (data.success) {
         const moveInfo = uciToNotation(positionPen, data.bestMove)
+        const parsedEvaluation = typeof data.score === 'number'
+          ? data.score
+          : data.score != null
+            ? parseFloat(data.score)
+            : undefined
+
         resolve({
           move: moveInfo.notation,
           moveInfo: moveInfo,
           rawContent: `本地引擎 (Web Worker)\n最佳走法 (UCI): ${data.bestMove}\n评分: ${data.score}\n完成深度: ${data.depth}/${depth}\n节点: ${data.nodesSearched}\n耗时: ${data.time.toFixed(2)}s`,
-          fullPrompt: `FEN: ${fen}\nUCI: ${data.bestMove}`
+          fullPrompt: `FEN: ${fen}\nUCI: ${data.bestMove}`,
+          evaluation: isNaN(parsedEvaluation as any) ? undefined : parsedEvaluation,
         })
       } else {
         reject(new Error(data.error || '本地引擎运行失败'))

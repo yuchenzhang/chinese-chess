@@ -1,8 +1,14 @@
 {
-  "date": "2026-05-21",
-  "time": "17:27",
-  "full_time": "2026-05-21 17:27:38",
+  "date": "2026-05-22",
+  "time": "13:02",
+  "full_time": "2026-05-22 13:02:45",
   "last_commits": [
+  {
+    "hash": "b03efcf",
+    "message": "feat: refactor remote engine integration & support 7-layer national master difficulty",
+    "author": "yc",
+    "date": "2026-05-22"
+  },
   {
     "hash": "be25b57",
     "message": "fix(web): define missing UseChessGameResult interface in useChessGame hook",
@@ -24,12 +30,6 @@
   {
     "hash": "609cc05",
     "message": "chore: untrack deploy script and add to .gitignore",
-    "author": "yc",
-    "date": "2026-05-21"
-  },
-  {
-    "hash": "18a0981",
-    "message": "deploy script",
     "author": "yc",
     "date": "2026-05-21"
   }

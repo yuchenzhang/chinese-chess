@@ -24,41 +24,30 @@ export interface MoveRecord {
   isNotable?: boolean
   /** Reason for being notable (e.g. "捉双车炮", "得车") */
   notableReason?: string
+  /** 局势评估分值（绝对分值，红正黑负） */
+  evaluation?: number
 }
 
-export interface LlmAnnotation {
+export interface SnapshotStep {
   ply: number
-  side: 'red' | 'black'
-  move: string
-  importance: 'low' | 'medium' | 'high' | 'critical'
-  quality: '好棋' | '妙手' | '正常' | '疑问手' | '失误' | '严重失误'
-  tags: string[]
-  comment: string
+  side: PieceSide
+  penCode: string
+  notation: string
+  evaluation?: number
 }
 
-export interface LlmAnalysisSummary {
-  overall: string
-  main_problems: string[]
-  training_focus: string[]
-}
-
-export interface CoachingScenario {
+export interface TacticalSnapshot {
   id: string
-  title: string
-  description: string
-  difficulty: 'easy' | 'medium' | 'hard'
-  initial_pen: string
-  instruction: string
-  /** Optional: the ply from the original game this is based on */
-  target_ply?: number
-}
-
-export interface LlmAnalysis {
-  game_id: string
-  review_type: string
-  annotations: LlmAnnotation[]
-  summary: LlmAnalysisSummary
-  coaching_scenarios?: CoachingScenario[]
+  timestamp: number
+  gameId: string
+  gameTitle: string
+  type: 'positive' | 'negative' // 'positive' for 优势瞬间, 'negative' for 失误瞬间
+  triggerMoveIndex: number // 触发该瞬间的走子在 moveHistory 中的索引
+  triggerReason: string // 触发原因描述
+  playerSide: PieceSide
+  steps: SnapshotStep[]
+  startPen: string // 10步（5轮）之前的局势 PEN，作为练习的起点
+  coachingHint?: string // 大模型的指导性建议（导入后填充）
 }
 
 export interface GameSession {
@@ -80,11 +69,9 @@ export interface GameSession {
   vsAi: boolean
   /** 本地引擎思考层数（难度），默认4 */
   engineDepth?: number
-  /** LLM analysis result */
-  llmAnalysis?: LlmAnalysis
-  /** AI 教练指导文字（针对特定习题/残局） */
+  /** AI 教练指导文字（针对特定习题/残局/战术练习） */
   coachingInstruction?: string
-  /** 是否为教练对局 */
+  /** 是否为教练/战术瞬间对局 */
   isCoaching?: boolean
 }
 

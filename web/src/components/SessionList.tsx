@@ -8,7 +8,6 @@ interface SessionListProps {
   onCreate: () => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
-  onStartScenario?: (scenario: any) => void
 }
 
 function sessionSummary(session: GameSession): string {
@@ -39,7 +38,6 @@ export function SessionList({
   onCreate,
   onDelete,
   onRename,
-  onStartScenario,
 }: SessionListProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -54,7 +52,6 @@ export function SessionList({
     setEditingId(null)
   }
 
-  const activeSession = sessions.find(s => s.id === activeSessionId)
   const sorted = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt)
 
   return (
@@ -66,40 +63,6 @@ export function SessionList({
         </button>
       </div>
       
-      {activeSession?.llmAnalysis?.coaching_scenarios && activeSession.llmAnalysis.coaching_scenarios.length > 0 && (
-        <div className="coaching-scenarios-mini">
-          <p className="hint" style={{ marginBottom: '8px', fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 'bold' }}>🎓 AI 教练习题</p>
-          <div style={{ display: 'grid', gap: '8px', marginBottom: '16px' }}>
-            {activeSession.llmAnalysis.coaching_scenarios.map(s => (
-              <button 
-                key={s.id} 
-                className="btn btn-sm" 
-                style={{ 
-                  textAlign: 'left', 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  background: 'color-mix(in srgb, var(--accent) 5%, var(--bg))',
-                  borderColor: 'color-mix(in srgb, var(--accent) 20%, var(--border))'
-                }}
-                onClick={() => onStartScenario?.(s)}
-              >
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
-                <span style={{ 
-                  fontSize: '0.65rem', 
-                  padding: '1px 4px', 
-                  borderRadius: '3px',
-                  background: s.difficulty === 'hard' ? '#fee2e2' : s.difficulty === 'medium' ? '#fef3c7' : '#dcfce7',
-                  color: s.difficulty === 'hard' ? '#991b1b' : s.difficulty === 'medium' ? '#92400e' : '#166534',
-                  marginLeft: '4px',
-                  flexShrink: 0
-                }}>{s.difficulty === 'hard' ? '难' : s.difficulty === 'medium' ? '中' : '简'}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       <ul className="session-list">
         {sorted.map((session) => {
           const isActive = session.id === activeSessionId

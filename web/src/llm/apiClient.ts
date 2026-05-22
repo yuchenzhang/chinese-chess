@@ -29,6 +29,7 @@ export interface AiMoveResult {
   rawContent?: string
   /** The full prompt that was actually sent to the LLM (enhanced by backend). */
   fullPrompt?: string
+  evaluation?: number
 }
 
 export interface LlmProviderInfo {
@@ -103,11 +104,18 @@ export async function requestAiMoveFromServer(
   // Convert UCI to Chinese notation for the frontend zh-chess engine
   const moveInfo = uciToNotation(input.positionPen, result.best_move)
 
+  const parsedEvaluation = typeof result.evaluation === 'number'
+    ? result.evaluation
+    : result.evaluation != null
+      ? parseFloat(result.evaluation)
+      : undefined
+
   return {
     move: moveInfo.notation,
     moveInfo: moveInfo,
     rawContent: `最佳走法 (UCI): ${result.best_move}\n引擎评估: ${result.evaluation}\n深度: ${result.depth}\n耗时: ${result.think_time}s`,
-    fullPrompt: `FEN: ${fen}\nUCI: ${result.best_move}`
+    fullPrompt: `FEN: ${fen}\nUCI: ${result.best_move}`,
+    evaluation: isNaN(parsedEvaluation as any) ? undefined : parsedEvaluation,
   }
 }
 

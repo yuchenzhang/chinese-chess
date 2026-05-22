@@ -8,7 +8,8 @@ import {
   saveStore,
 } from '../storage/sessionStore'
 
-import type { CapturedPieceInfo, GameSession, MoveRecord } from '../types/gameSession'
+import type { CapturedPieceInfo, GameSession, MoveRecord, TacticalSnapshot } from '../types/gameSession'
+import { addSnapshot } from '../storage/snapshotStore'
 
 export interface UseChessGameResult {
   canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -42,6 +43,8 @@ export interface UseChessGameResult {
   deleteSession: (id: string) => void
   renameSession: (id: string, title: string) => void
   patchActiveSession: (patch: Partial<GameSession>) => void
+  startSnapshotPractice: (snapshot: TacticalSnapshot) => void
+  exitSnapshotPractice: () => void
 }
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
@@ -87,6 +90,8 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
   const aiRunIdRef = useRef(0)
   const aiThinkingRef = useRef(false)
   const runAiTurnRef = useRef<() => Promise<void>>(async () => {})
+  const lastCapturedMoveIndexRef = useRef<Record<string, number>>({})
+  const previousSessionIdRef = useRef<string | null>(null)
 
   aiThinkingRef.current = aiThinking
 
@@ -100,7 +105,22 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     setSessions(nextSessions)
     setActiveSessionId(nextActiveId)
     sessionsRef.current = nextSessions
-    saveStore({ version: 1, activeSessionId: nextActiveId, sessions: nextSessions })
+    
+    // Filter out temporary practice sessions when persisting to localStorage
+    const savedSessions = nextSessions.filter(s => !s.id.startsWith('practice-'))
+    const savedActiveId = nextActiveId.startsWith('practice-')
+      ? (savedSessions[0]?.id || '')
+      : nextActiveId
+    saveStore({ version: 1, activeSessionId: savedActiveId, sessions: savedSessions })
+  }, [])
+
+  const loadSessionOnBoard = useCallback((session: GameSession) => {
+    const game = gameRef.current
+    const canvas = canvasRef.current
+    if (!game || !canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    applySessionToBoard(game, session, ctx)
   }, [])
 
   const patchActiveSession = useCallback((patch: Partial<GameSession>) => {
@@ -116,14 +136,117 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     })
   }, [])
 
-  const loadSessionOnBoard = useCallback((session: GameSession) => {
-    const game = gameRef.current
-    const canvas = canvasRef.current
-    if (!game || !canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    applySessionToBoard(game, session, ctx)
+  const captureSnapshot = useCallback((
+    session: GameSession,
+    type: 'positive' | 'negative',
+    triggerMoveIndex: number,
+    reason: string
+  ) => {
+    const gameId = session.id
+    const cooldownIdx = lastCapturedMoveIndexRef.current[gameId]
+    if (cooldownIdx !== undefined && triggerMoveIndex - cooldownIdx < 6) {
+      console.log('[象棋·错题本] 处于 6 步冷却期，忽略当前触发')
+      return
+    }
+
+    // Record the trigger index for cooldown
+    lastCapturedMoveIndexRef.current[gameId] = triggerMoveIndex
+
+    // Extract last 10 plies ending at triggerMoveIndex
+    const startIndex = Math.max(0, triggerMoveIndex - 9)
+    const capturedSteps = session.moveHistory.slice(startIndex, triggerMoveIndex + 1)
+    
+    // Construct SnapshotStep array
+    const steps = capturedSteps.map((m, idx) => ({
+      ply: idx,
+      side: m.side,
+      penCode: m.penCode,
+      notation: m.notation,
+      evaluation: m.evaluation,
+    }))
+
+    // Determine startPen (the board state *before* the first move in the snapshot)
+    const startPen = startIndex === 0
+      ? (session.initialPen ?? session.positionPen)
+      : session.moveHistory[startIndex - 1].penCode
+
+    const snapshot: TacticalSnapshot = {
+      id: `${session.id}-${triggerMoveIndex}-${Date.now()}`,
+      timestamp: Date.now(),
+      gameId: session.id,
+      gameTitle: session.title || '人机对弈',
+      type,
+      triggerMoveIndex,
+      triggerReason: reason,
+      playerSide: session.playerSide,
+      steps,
+      startPen,
+    }
+
+    // Add to store
+    addSnapshot(snapshot)
+    // Dispatch a custom event to notify components that snapshots changed
+    window.dispatchEvent(new CustomEvent('chess-snapshots-changed'))
   }, [])
+
+  const startSnapshotPractice = useCallback((snapshot: TacticalSnapshot) => {
+    // Backup the current session ID
+    if (!activeSessionIdRef.current.startsWith('practice-')) {
+      previousSessionIdRef.current = activeSessionIdRef.current
+    }
+
+    // Create the temporary practice session
+    const practiceId = `practice-${snapshot.id}-${Date.now()}`
+    
+    // Parse turn from the snapshot's startPen
+    const penParts = snapshot.startPen.split(' ')
+    const turnChar = penParts[1] || 'r'
+    const startTurn: PieceSide = (turnChar === 'r' || turnChar === 'w') ? 'RED' : 'BLACK'
+
+    const practiceSession: GameSession = {
+      id: practiceId,
+      title: `[练习] ${snapshot.gameTitle}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      playerSide: snapshot.playerSide,
+      initialPen: snapshot.startPen,
+      positionPen: snapshot.startPen,
+      moveHistory: [],
+      winner: null,
+      status: 'active',
+      currentTurn: startTurn,
+      vsAi: true,
+      isCoaching: true,
+      coachingInstruction: snapshot.coachingHint || `AI 提示：此瞬间为${snapshot.type === 'positive' ? '优势瞬间' : '失误瞬间'}。当时触发走子为 "${snapshot.steps[snapshot.steps.length - 1]?.notation || ''}"。请重新练习本局！`
+    }
+
+    // Insert into sessions and switch
+    const nextSessions = [practiceSession, ...sessionsRef.current.filter(s => !s.id.startsWith('practice-'))]
+    persist(nextSessions, practiceId)
+    
+    // Switch on the board
+    loadSessionOnBoard(practiceSession)
+  }, [loadSessionOnBoard, persist])
+
+  const exitSnapshotPractice = useCallback(() => {
+    const backupId = previousSessionIdRef.current
+    previousSessionIdRef.current = null
+
+    // Remove temporary practice sessions
+    const nextSessions = sessionsRef.current.filter(s => !s.id.startsWith('practice-'))
+    
+    let targetId = backupId && nextSessions.some(s => s.id === backupId) ? backupId : nextSessions[0]?.id
+    if (!targetId) {
+      // Fallback: create new session if empty
+      const fallback = makeSession({ vsAi: true })
+      nextSessions.push(fallback)
+      targetId = fallback.id
+    }
+
+    persist(nextSessions, targetId)
+    const targetSession = nextSessions.find(s => s.id === targetId)!
+    loadSessionOnBoard(targetSession)
+  }, [persist, loadSessionOnBoard])
 
   const runAiTurn = useCallback(async () => {
     const game = gameRef.current
@@ -168,7 +291,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
         )
 
         try {
-          const { move, moveInfo, fullPrompt, rawContent } = await requestAiMove({
+          const { move, moveInfo, fullPrompt, rawContent, evaluation } = await requestAiMove({
             positionPen: latest.positionPen,
             moveHistory: latest.moveHistory,
             aiSide: ai,
@@ -181,6 +304,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
             moveInfo,
             aiSide: ai,
             runId,
+            evaluation,
           })
 
           if (rawContent) {
@@ -195,6 +319,52 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
           if (runId !== aiRunIdRef.current) {
             console.log('[象棋·AI] 请求已过期，忽略')
             return
+          }
+
+          // Update the human's last move in moveHistory with the evaluation score
+          if (evaluation !== undefined) {
+            setSessions((prev) => {
+              const next = prev.map((s) => {
+                if (s.id !== activeSessionIdRef.current) return s
+                const history = [...s.moveHistory]
+                const humanMoveIdx = history.length - 1
+                if (humanMoveIdx >= 0 && history[humanMoveIdx].side === s.playerSide) {
+                  history[humanMoveIdx] = {
+                    ...history[humanMoveIdx],
+                    evaluation,
+                  }
+                  
+                  // Now let's check for evaluation score delta trigger!
+                  // We compare with the previous Human move's evaluation.
+                  const prevHumanMoveIdx = humanMoveIdx - 2
+                  const prevEval = prevHumanMoveIdx >= 0 ? history[prevHumanMoveIdx].evaluation : undefined
+                  
+                  if (prevEval !== undefined) {
+                    const score_curr = s.playerSide === 'RED' ? evaluation : -evaluation
+                    const score_prev = s.playerSide === 'RED' ? prevEval : -prevEval
+                    const delta = score_curr - score_prev
+                    
+                    setTimeout(() => {
+                      const latestSession = sessionsRef.current.find((ls) => ls.id === s.id)
+                      if (latestSession) {
+                        if (delta >= 150) {
+                          captureSnapshot(latestSession, 'positive', humanMoveIdx, `局面好转：局势得分提升了 ${delta} 分`)
+                        } else if (delta <= -150) {
+                          captureSnapshot(latestSession, 'negative', humanMoveIdx, `局势恶化：局势得分下降了 ${-delta} 分`)
+                        }
+                      }
+                    }, 100)
+                  }
+                }
+                return {
+                  ...s,
+                  moveHistory: history,
+                }
+              })
+              sessionsRef.current = next
+              saveStore({ version: 1, activeSessionId: activeSessionIdRef.current, sessions: next })
+              return next
+            })
           }
 
           if (moveInfo && moveInfo.fromX !== -1) {
@@ -475,7 +645,6 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     const turnChar = penParts[1] || 'r'
     const turn: PieceSide = (turnChar === 'r' || turnChar === 'w') ? 'RED' : 'BLACK'
 
-    const active = sessionsRef.current.find(s => s.id === activeSessionIdRef.current)
     const session = makeSession({
       vsAi: true,
       title: `${scenario.title}`,
@@ -485,7 +654,6 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     })
 
     session.isCoaching = true
-    session.llmAnalysis = active?.llmAnalysis
     session.status = 'active'
     session.currentTurn = turn
 
@@ -596,9 +764,27 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
       if (captured) {
         const session = sessionsRef.current.find((s) => s.id === id)
-        if (session && session.vsAi && mover !== session.playerSide && captured.side === session.playerSide) {
+        if (session && session.vsAi) {
+          if (mover !== session.playerSide && captured.side === session.playerSide) {
+            if (['车', '马', '炮'].includes(captured.displayName)) {
+              setKeyPieceAlert({ pieceName: captured.displayName })
+            }
+          }
+
           if (['车', '马', '炮'].includes(captured.displayName)) {
-            setKeyPieceAlert({ pieceName: captured.displayName })
+            const triggerIdx = session.moveHistory.length // Index of this move once it is appended
+            const isPositive = mover === session.playerSide
+            const type = isPositive ? 'positive' : 'negative'
+            const reason = isPositive
+              ? `吃子：吃掉了对方的 "${captured.displayName}"`
+              : `失子：丢掉了己方的 "${captured.displayName}"`
+
+            setTimeout(() => {
+              const latestSession = sessionsRef.current.find((ls) => ls.id === id)
+              if (latestSession) {
+                captureSnapshot(latestSession, type, triggerIdx, reason)
+              }
+            }, 100)
           }
         }
       }
@@ -800,6 +986,8 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     deleteSession,
     renameSession,
     patchActiveSession,
+    startSnapshotPractice,
+    exitSnapshotPractice,
     boardSize: BOARD_SIZE,
     boardPadding: BOARD_PADDING,
   }
