@@ -309,7 +309,7 @@ export function ChessGame({
           </div>
         </div>
         <div className="header-actions">
-          <nav className="desktop-nav">
+          <nav className="header-nav">
             <a 
               href="https://github.com/yuchenzhang/chinese-chess" 
               target="_blank" 
@@ -561,6 +561,7 @@ export function ChessGame({
                   type="button" 
                   className="btn btn-lg" 
                   onClick={() => setShowSettings(!showSettings)}
+                  data-tour="mobile-settings-btn"
                 >
                   {showSettings ? '隐藏设置' : '游戏设置'}
                 </button>

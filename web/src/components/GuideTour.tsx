@@ -8,7 +8,7 @@ interface TourStep {
   action?: () => void
 }
 
-const TOUR_STEPS: TourStep[] = [
+const BASE_TOUR_STEPS: TourStep[] = [
   {
     target: '[data-tour="brand"]',
     title: '欢迎来到中国象棋 AI 教练',
@@ -33,19 +33,13 @@ const TOUR_STEPS: TourStep[] = [
     content: '点击“复制大模型提示词”，然后将其粘贴给 ChatGPT 或 Gemini。AI 会根据棋局返回 JSON 格式的点评和针对性习题数据。',
     position: 'left',
     action: () => {
-      // 尝试打开回放面板
       const tryOpen = () => {
         const panel = document.querySelector('[data-tour="export-import-actions"]');
-        if (panel) return; // 已打开
-
-        console.log('[象棋·演示] 尝试通过模拟点击打开回放面板...');
+        if (panel) return;
         const btn = document.querySelector('[data-tour="enter-replay-btn"]') as HTMLButtonElement;
-        
         if (btn && !btn.disabled) {
           btn.click();
         } else {
-          // 如果按钮还没准备好，等待并重试
-          console.log('[象棋·演示] 按钮尚未准备好，等待中...');
           setTimeout(tryOpen, 200);
         }
       };
@@ -74,24 +68,23 @@ const TOUR_STEPS: TourStep[] = [
 
 export function GuideTour() {
   const [activeStep, setActiveStep] = useState<number | null>(null)
+  const [steps, setSteps] = useState<TourStep[]>([])
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({})
 
-  const updateTooltipPosition = useCallback((index: number) => {
-    const step = TOUR_STEPS[index]
+  const updateTooltipPosition = useCallback((index: number, currentSteps: TourStep[]) => {
+    const step = currentSteps[index]
+    if (!step) return
     
-    // 执行步骤关联的动作
     if (step.action) {
       step.action();
     }
 
-    // 使用轮询重试机制，确保 DOM 元素出现（特别是由于 action 触发的元素）
     let attempts = 0
-    const maxAttempts = 20 // 最多等待 2 秒
+    const maxAttempts = 20 
     
     const tryPosition = () => {
       const element = document.querySelector(step.target) as HTMLElement
       
-      // 如果元素还没出现且我们还有重试机会，则继续等待
       if (!element && attempts < maxAttempts) {
         attempts++
         setTimeout(tryPosition, 100)
@@ -132,7 +125,6 @@ export function GuideTour() {
           break
       }
 
-      // Viewport boundary checks
       const tooltipWidth = 320
       const margin = 20
       
@@ -171,6 +163,25 @@ export function GuideTour() {
 
   useEffect(() => {
     const handleStart = () => {
+      const dynamicSteps = [...BASE_TOUR_STEPS]
+      const settingsBtn = document.querySelector('[data-tour="mobile-settings-btn"]') as HTMLElement
+      
+      if (settingsBtn && window.getComputedStyle(settingsBtn).display !== 'none') {
+        const sidebar = document.querySelector('.sidebar')
+        if (sidebar && !sidebar.classList.contains('show-mobile')) {
+          dynamicSteps.splice(2, 0, {
+            target: '[data-tour="mobile-settings-btn"]',
+            title: '打开控制面板',
+            content: '在手机端，复盘与设置功能都在这里。我们将为您自动打开面板。',
+            position: 'top',
+            action: () => {
+              const btn = document.querySelector('[data-tour="mobile-settings-btn"]') as HTMLButtonElement
+              if (btn) btn.click()
+            }
+          })
+        }
+      }
+      setSteps(dynamicSteps)
       setActiveStep(0)
     }
     window.addEventListener('start-tour', handleStart)
@@ -178,19 +189,18 @@ export function GuideTour() {
   }, [])
 
   useEffect(() => {
-    if (activeStep !== null) {
-      // Clear previous highlights
+    if (activeStep !== null && steps.length > 0) {
       document.querySelectorAll('.tour-highlight').forEach(el => el.classList.remove('tour-highlight'))
-      updateTooltipPosition(activeStep)
+      updateTooltipPosition(activeStep, steps)
     }
-  }, [activeStep, updateTooltipPosition])
+  }, [activeStep, steps, updateTooltipPosition])
 
-  if (activeStep === null) return null
+  if (activeStep === null || steps.length === 0) return null
 
-  const currentStep = TOUR_STEPS[activeStep]
+  const currentStep = steps[activeStep]
 
   const handleNext = () => {
-    if (activeStep < TOUR_STEPS.length - 1) {
+    if (activeStep < steps.length - 1) {
       setActiveStep(activeStep + 1)
     } else {
       handleClose()
@@ -216,11 +226,11 @@ export function GuideTour() {
         <h4 className="tour-tooltip-title">{currentStep.title}</h4>
         <p className="tour-tooltip-content">{currentStep.content}</p>
         <div className="tour-tooltip-footer">
-          <span className="tour-tooltip-progress">{activeStep + 1} / {TOUR_STEPS.length}</span>
+          <span className="tour-tooltip-progress">{activeStep + 1} / {steps.length}</span>
           <div className="tour-tooltip-actions">
             {activeStep > 0 && <button className="btn btn-sm" onClick={handlePrev}>上一步</button>}
             <button className="btn btn-sm primary" onClick={handleNext}>
-              {activeStep === TOUR_STEPS.length - 1 ? '完成' : '下一步'}
+              {activeStep === steps.length - 1 ? '完成' : '下一步'}
             </button>
           </div>
         </div>
