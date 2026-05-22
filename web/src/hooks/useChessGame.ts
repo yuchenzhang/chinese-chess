@@ -257,57 +257,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     setPendingSnapshot(snapshot)
   }, [])
 
-  const captureSnapshot = useCallback((
-    session: GameSession,
-    type: 'positive' | 'negative',
-    triggerMoveIndex: number,
-    reason: string
-  ) => {
-    const gameId = session.id
-    if (gameId.startsWith('practice-')) {
-      console.log('[象棋·错题本] 练习模式下不捕获快照')
-      return
-    }
 
-    const cooldownIdx = lastCapturedMoveIndexRef.current[gameId]
-    if (cooldownIdx !== undefined && triggerMoveIndex - cooldownIdx < 6) {
-      console.log('[象棋·错题本] 处于 6 步冷却期，忽略当前触发')
-      return
-    }
-
-    // Extract last 10 plies ending at triggerMoveIndex
-    const startIndex = Math.max(0, triggerMoveIndex - 9)
-    const capturedSteps = session.moveHistory.slice(startIndex, triggerMoveIndex + 1)
-    
-    // Construct SnapshotStep array
-    const steps = capturedSteps.map((m, idx) => ({
-      ply: idx,
-      side: m.side,
-      penCode: m.penCode,
-      notation: m.notation,
-      evaluation: m.evaluation,
-    }))
-
-    // Determine startPen (the board state *before* the first move in the snapshot)
-    const startPen = startIndex === 0
-      ? (session.initialPen ?? session.positionPen)
-      : session.moveHistory[startIndex - 1].penCode
-
-    const snapshot: TacticalSnapshot = {
-      id: `${session.id}-${triggerMoveIndex}-${Date.now()}`,
-      timestamp: Date.now(),
-      gameId: session.id,
-      gameTitle: session.title || '人机对弈',
-      type,
-      triggerMoveIndex,
-      triggerReason: reason,
-      playerSide: session.playerSide,
-      steps,
-      startPen,
-    }
-
-    setPendingSnapshot(snapshot)
-  }, [])
 
   const startSnapshotPractice = useCallback((snapshot: TacticalSnapshot) => {
     // Backup the current session ID

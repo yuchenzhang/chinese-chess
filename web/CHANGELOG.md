@@ -1,9 +1,9 @@
 # Change Log
-Generated at: 2026-05-22 23:35:08
+Generated at: 2026-05-23 01:58:40
 
 ### 最近五次提交
+* bc08186 - feat: replace automatic snapshot triggers with manual snapshot recording tracing back up to 10 moves (yc, 2026-05-23)
+* 0fa67b1 - feat: restrict cycle detection to AI-initiated attacks only (allows repeating defensive moves, preventing human cheating) (yc, 2026-05-23)
+* e13742c - feat: re-verify and optimize cycle detection, ensuring 100% correct repetition avoidance with zero side effects on normal AI engine decisions (yc, 2026-05-23)
 * a7b95cb - feat: 局势评估进度条与分水岭检测优化 (yc, 2026-05-22)
 * a27be2b - fix: 移动端操作演示引导定位与头部导航栏显示问题 (yc, 2026-05-22)
-* 8828683 - feat: 添加游戏结束棋盘覆盖结算画面 (yc, 2026-05-22)
-* d7028a0 - feat: 响应式棋盘自适应 + 软提醒气泡 + 快照确认/删除 (yc, 2026-05-22)
-* 22ba9f9 - feat: implement tactical snapshot (战术错题本) mechanism and interactive sandbox practice mode, remove obsolete full-game AI analysis (yc, 2026-05-22)
