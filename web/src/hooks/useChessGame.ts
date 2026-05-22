@@ -47,7 +47,9 @@ export interface UseChessGameResult {
   exitSnapshotPractice: () => void
   pendingSnapshot: TacticalSnapshot | null
   confirmPendingSnapshot: () => void
+  confirmPendingSnapshotWithType: (type: 'positive' | 'negative') => void
   cancelPendingSnapshot: () => void
+  triggerManualSnapshot: () => void
 }
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
@@ -180,16 +182,29 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     })
   }, [])
 
-  const confirmPendingSnapshot = useCallback(() => {
+  const confirmPendingSnapshotWithType = useCallback((type: 'positive' | 'negative') => {
     if (!pendingSnapshot) return
     const gameId = pendingSnapshot.gameId
     lastCapturedMoveIndexRef.current[gameId] = pendingSnapshot.triggerMoveIndex
 
-    addSnapshot(pendingSnapshot)
-    window.dispatchEvent(new CustomEvent('chess-snapshots-changed', { detail: { snapshot: pendingSnapshot } }))
+    const updatedSnapshot: TacticalSnapshot = {
+      ...pendingSnapshot,
+      type,
+      triggerReason: pendingSnapshot.triggerReason === 'manual'
+        ? (type === 'positive' ? '优势瞬间 (手动录入)' : '失误瞬间 (手动录入)')
+        : pendingSnapshot.triggerReason
+    }
+
+    addSnapshot(updatedSnapshot)
+    window.dispatchEvent(new CustomEvent('chess-snapshots-changed', { detail: { snapshot: updatedSnapshot } }))
     setPendingSnapshot(null)
-    console.log('[象棋·错题本] 用户确认录入，成功添加快照！')
+    console.log(`[象棋·错题本] 用户手动确认录入 (${type})，成功添加快照！`)
   }, [pendingSnapshot])
+
+  const confirmPendingSnapshot = useCallback(() => {
+    if (!pendingSnapshot) return
+    confirmPendingSnapshotWithType(pendingSnapshot.type)
+  }, [pendingSnapshot, confirmPendingSnapshotWithType])
 
   const cancelPendingSnapshot = useCallback(() => {
     if (pendingSnapshot) {
@@ -197,6 +212,50 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       setPendingSnapshot(null)
     }
   }, [pendingSnapshot])
+
+  const triggerManualSnapshot = useCallback(() => {
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session) return
+    if (session.moveHistory.length === 0) {
+      console.log('[象棋·错题本] 暂无走子记录，无法录入快照')
+      return
+    }
+
+    const triggerMoveIndex = session.moveHistory.length - 1
+
+    // Extract last 10 plies ending at triggerMoveIndex
+    const startIndex = Math.max(0, triggerMoveIndex - 9)
+    const capturedSteps = session.moveHistory.slice(startIndex, triggerMoveIndex + 1)
+    
+    // Construct SnapshotStep array
+    const steps = capturedSteps.map((m, idx) => ({
+      ply: idx,
+      side: m.side,
+      penCode: m.penCode,
+      notation: m.notation,
+      evaluation: m.evaluation,
+    }))
+
+    // Determine startPen
+    const startPen = startIndex === 0
+      ? (session.initialPen ?? session.positionPen)
+      : session.moveHistory[startIndex - 1].penCode
+
+    const snapshot: TacticalSnapshot = {
+      id: `${session.id}-${triggerMoveIndex}-${Date.now()}`,
+      timestamp: Date.now(),
+      gameId: session.id,
+      gameTitle: session.title || '人机对弈',
+      type: 'positive', // Default, will be updated based on user's choice
+      triggerMoveIndex,
+      triggerReason: 'manual',
+      playerSide: session.playerSide,
+      steps,
+      startPen,
+    }
+
+    setPendingSnapshot(snapshot)
+  }, [])
 
   const captureSnapshot = useCallback((
     session: GameSession,
@@ -395,27 +454,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
                     evaluation,
                   }
                   
-                  // Now let's check for evaluation score delta trigger!
-                  // We compare with the previous Human move's evaluation.
-                  const prevHumanMoveIdx = humanMoveIdx - 2
-                  const prevEval = prevHumanMoveIdx >= 0 ? history[prevHumanMoveIdx].evaluation : undefined
-                  
-                  if (prevEval !== undefined) {
-                    const score_curr = s.playerSide === 'RED' ? evaluation : -evaluation
-                    const score_prev = s.playerSide === 'RED' ? prevEval : -prevEval
-                    const delta = score_curr - score_prev
-                    
-                    setTimeout(() => {
-                      const latestSession = sessionsRef.current.find((ls) => ls.id === s.id)
-                      if (latestSession) {
-                        if (delta >= 150) {
-                          captureSnapshot(latestSession, 'positive', humanMoveIdx, `局面好转：局势得分提升了 ${delta} 分`)
-                        } else if (delta <= -150) {
-                          captureSnapshot(latestSession, 'negative', humanMoveIdx, `局势恶化：局势得分下降了 ${-delta} 分`)
-                        }
-                      }
-                    }, 100)
-                  }
+                  // Auto snapshot trigger on score delta is removed per user request (manual snapshot mode enabled).
                 }
                 return {
                   ...s,
@@ -832,21 +871,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
             }
           }
 
-          if (['车', '马', '炮'].includes(captured.displayName)) {
-            const triggerIdx = session.moveHistory.length // Index of this move once it is appended
-            const isPositive = mover === session.playerSide
-            const type = isPositive ? 'positive' : 'negative'
-            const reason = isPositive
-              ? `吃子：吃掉了对方的 "${captured.displayName}"`
-              : `失子：丢掉了己方的 "${captured.displayName}"`
-
-            setTimeout(() => {
-              const latestSession = sessionsRef.current.find((ls) => ls.id === id)
-              if (latestSession) {
-                captureSnapshot(latestSession, type, triggerIdx, reason)
-              }
-            }, 100)
-          }
+          // Auto snapshot trigger on key piece capture is removed per user request (manual snapshot mode enabled).
         }
       }
 
@@ -1051,7 +1076,9 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     exitSnapshotPractice,
     pendingSnapshot,
     confirmPendingSnapshot,
+    confirmPendingSnapshotWithType,
     cancelPendingSnapshot,
+    triggerManualSnapshot,
     boardSize: BOARD_SIZE,
     boardPadding: BOARD_PADDING,
   }

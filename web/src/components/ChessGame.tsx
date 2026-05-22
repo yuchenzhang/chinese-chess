@@ -57,7 +57,9 @@ export function ChessGame({
     exitSnapshotPractice,
     pendingSnapshot,
     confirmPendingSnapshot,
+    confirmPendingSnapshotWithType,
     cancelPendingSnapshot,
+    triggerManualSnapshot,
     boardSize,
   } = useChessGame()
 
@@ -465,26 +467,64 @@ export function ChessGame({
               )}
 
               {pendingSnapshot && !replay.isReplaying && (
-                <div className={`soft-bubble slide-down ${pendingSnapshot.type === 'positive' ? 'glow-green' : 'glow-amber'}`} role="status">
-                  <span className="soft-bubble-text">
-                    {pendingSnapshot.type === 'positive' ? '👑' : '⚠️'} 检测到对局分水岭！录入战术本？
+                <div 
+                  className={`soft-bubble slide-down ${pendingSnapshot.triggerReason === 'manual' ? 'glow-blue' : (pendingSnapshot.type === 'positive' ? 'glow-green' : 'glow-amber')}`} 
+                  role="status"
+                  style={{
+                    padding: pendingSnapshot.triggerReason === 'manual' ? '20px 28px' : '16px 24px',
+                    borderRadius: '20px',
+                    maxWidth: '480px',
+                    width: '90vw'
+                  }}
+                >
+                  <span className="soft-bubble-text" style={{ fontSize: pendingSnapshot.triggerReason === 'manual' ? '1.25rem' : '1.1rem', fontWeight: 600, textAlign: 'center', marginBottom: pendingSnapshot.triggerReason === 'manual' ? '4px' : '0' }}>
+                    {pendingSnapshot.triggerReason === 'manual' ? '📸 手动录入战术快照（追溯前10步）' : `${pendingSnapshot.type === 'positive' ? '👑' : '⚠️'} 检测到对局分水岭！录入战术本？`}
                   </span>
-                  <div className="soft-bubble-actions">
-                    <button 
-                      type="button"
-                      className="btn-soft-action primary" 
-                      onClick={confirmPendingSnapshot}
-                    >
-                      录入
-                    </button>
-                    <button 
-                      type="button"
-                      className="btn-soft-action secondary" 
-                      onClick={cancelPendingSnapshot}
-                    >
-                      忽略
-                    </button>
-                  </div>
+                  {pendingSnapshot.triggerReason === 'manual' ? (
+                    <div className="soft-bubble-actions" style={{ gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <button 
+                        type="button"
+                        className="btn-soft-action glow-green-btn" 
+                        onClick={() => confirmPendingSnapshotWithType('positive')}
+                        style={{ padding: '10px 20px', fontSize: '0.95rem', borderRadius: '24px', fontWeight: 'bold' }}
+                      >
+                        👑 优势瞬间
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn-soft-action glow-amber-btn" 
+                        onClick={() => confirmPendingSnapshotWithType('negative')}
+                        style={{ padding: '10px 20px', fontSize: '0.95rem', borderRadius: '24px', fontWeight: 'bold' }}
+                      >
+                        ⚠️ 失误瞬间
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn-soft-action secondary" 
+                        onClick={cancelPendingSnapshot}
+                        style={{ padding: '10px 20px', fontSize: '0.95rem', borderRadius: '24px' }}
+                      >
+                        取消
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="soft-bubble-actions">
+                      <button 
+                        type="button"
+                        className="btn-soft-action primary" 
+                        onClick={confirmPendingSnapshot}
+                      >
+                        录入
+                      </button>
+                      <button 
+                        type="button"
+                        className="btn-soft-action secondary" 
+                        onClick={cancelPendingSnapshot}
+                      >
+                        忽略
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -575,6 +615,15 @@ export function ChessGame({
                   data-tour="mobile-settings-btn"
                 >
                   {showSettings ? '隐藏设置' : '游戏设置'}
+                </button>
+                <button 
+                  type="button" 
+                  className="btn btn-lg" 
+                  onClick={triggerManualSnapshot}
+                  disabled={moveHistory.length === 0}
+                  title="手动录入当前局面的战术瞬间"
+                >
+                  📸 录入快照
                 </button>
                 <button 
                   type="button" 
@@ -753,6 +802,15 @@ export function ChessGame({
                   请求 AI 走子
                 </button>
               )}
+              <button 
+                type="button" 
+                className="btn" 
+                onClick={triggerManualSnapshot}
+                disabled={moveHistory.length === 0}
+                title="手动将当前盘面与前10步对局录入战术错题本"
+              >
+                📸 录入战术快照
+              </button>
               <button 
                 type="button" 
                 className="btn" 
