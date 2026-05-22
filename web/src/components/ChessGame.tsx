@@ -508,6 +508,42 @@ export function ChessGame({
                   </div>
                 </div>
               )}
+
+              {winner && !replay.isReplaying && (
+                <div className="game-over-overlay">
+                  <div className="game-over-card">
+                    <div className={`game-over-icon ${vsAi && winner === playerSide ? 'victory' : vsAi && winner !== playerSide ? 'defeat' : ''}`}>
+                      {vsAi
+                        ? (winner === playerSide ? '🎉' : '😔')
+                        : (winner === 'RED' ? '🏆' : '🏆')
+                      }
+                    </div>
+                    <h2 className="game-over-title">
+                      {vsAi
+                        ? (winner === playerSide ? '恭喜你，胜利了！' : '很遗憾，你输了')
+                        : `${peiceSideMap[winner]}方获胜！`
+                      }
+                    </h2>
+                    <p className="game-over-subtitle">
+                      {vsAi
+                        ? (winner === playerSide
+                          ? `你执${peiceSideMap[playerSide]}击败了 AI，共走了 ${moveHistory.length} 步`
+                          : `AI 执${peiceSideMap[winner]}获胜，共走了 ${moveHistory.length} 步`)
+                        : `${peiceSideMap[winner]}方在 ${moveHistory.length} 步后赢得了比赛`
+                      }
+                    </p>
+                    <div className="game-over-actions">
+                      <button
+                        type="button"
+                        className="btn-game-over primary"
+                        onClick={startNewGame}
+                      >
+                        🔄 再来一局
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="mobile-main-actions">
