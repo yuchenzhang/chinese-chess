@@ -19,6 +19,8 @@ export interface AiMoveRequest {
   positionPen?: string
   /** The AI's side — used for validation since PEN turn letter may not match. */
   moveSide?: 'RED' | 'BLACK'
+  /** The computation depth of the engine. */
+  depth?: number
 }
 
 export interface AiMoveResult {
@@ -80,7 +82,7 @@ export async function requestAiMoveFromServer(
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fen }),
+    body: JSON.stringify({ fen, depth: input.depth }),
   })
 
   if (!res.ok) {

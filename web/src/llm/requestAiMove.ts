@@ -50,6 +50,7 @@ export async function requestAiMove(
       messages: [], // LLM messages are no longer needed
       positionPen: input.positionPen,
       moveSide: input.aiSide,
+      depth: input.engineDepth,
     })
   }
 

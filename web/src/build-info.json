@@ -1,0 +1,37 @@
+{
+  "date": "2026-05-21",
+  "time": "17:27",
+  "full_time": "2026-05-21 17:27:38",
+  "last_commits": [
+  {
+    "hash": "be25b57",
+    "message": "fix(web): define missing UseChessGameResult interface in useChessGame hook",
+    "author": "yc",
+    "date": "2026-05-21"
+  },
+  {
+    "hash": "e6544a3",
+    "message": "feat(ui): implement mobile-first responsive design and accessibility improvements",
+    "author": "yc",
+    "date": "2026-05-21"
+  },
+  {
+    "hash": "47abfb4",
+    "message": "docs: update README and implement dynamic Changelog page with GitHub links",
+    "author": "yc",
+    "date": "2026-05-21"
+  },
+  {
+    "hash": "609cc05",
+    "message": "chore: untrack deploy script and add to .gitignore",
+    "author": "yc",
+    "date": "2026-05-21"
+  },
+  {
+    "hash": "18a0981",
+    "message": "deploy script",
+    "author": "yc",
+    "date": "2026-05-21"
+  }
+]
+}

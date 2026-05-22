@@ -1263,6 +1263,25 @@
   border-color: transparent #fff transparent transparent;
 }
 
+.layout-single {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .layout-single {
+    padding: 1.5rem 1rem;
+    gap: 1.5rem;
+  }
+}
+
 .app-footer {
   padding: 24px;
   text-align: center;

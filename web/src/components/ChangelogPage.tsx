@@ -26,7 +26,7 @@ export function ChangelogPage({ onBack }: ChangelogPageProps) {
         </button>
       </header>
 
-      <main className="layout" style={{ justifyContent: 'center', padding: '40px 20px' }}>
+      <main className="layout-single" style={{ justifyContent: 'center' }}>
         <section className="card" style={{ maxWidth: '800px', width: '100%', margin: '0 auto' }}>
           <div style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
             <h2 style={{ margin: 0 }}>版本历史</h2>
