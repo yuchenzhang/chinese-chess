@@ -1,8 +1,20 @@
 {
   "date": "2026-05-23",
-  "time": "16:10",
-  "full_time": "2026-05-23 16:10:55",
+  "time": "20:38",
+  "full_time": "2026-05-23 20:38:48",
   "last_commits": [
+  {
+    "hash": "cc6100a",
+    "message": "feat: keep board visual orientation stable when swapping sides",
+    "author": "yc",
+    "date": "2026-05-23"
+  },
+  {
+    "hash": "197121f",
+    "message": "feat: implement side-swapping (执子换边) logic so human and AI swap sides and trigger AI move",
+    "author": "yc",
+    "date": "2026-05-23"
+  },
   {
     "hash": "f92e3b5",
     "message": "fix: resolve unused MoveRecord import type in TrendChart.tsx",
@@ -18,18 +30,6 @@
   {
     "hash": "714e10e",
     "message": "perf: simplify TrendChart to scrollable minimal stock-line style and add auto-scrolling centering",
-    "author": "yc",
-    "date": "2026-05-23"
-  },
-  {
-    "hash": "05bb704",
-    "message": "feat: implement game history rollback (jump-back-in-time) mechanic linked with TrendChart plies",
-    "author": "yc",
-    "date": "2026-05-23"
-  },
-  {
-    "hash": "9e61222",
-    "message": "feat: implement interactive real-time SVG game trend line chart with turning points and jump-to-ply mechanics",
     "author": "yc",
     "date": "2026-05-23"
   }
