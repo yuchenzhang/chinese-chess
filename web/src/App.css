@@ -1968,6 +1968,9 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 0.3s ease;
   width: 100%;
+  max-width: 720px; /* Aligns perfectly with the chessboard size! */
+  box-sizing: border-box;
+  overflow: hidden; /* Prevent vertical/horizontal boundary spillover */
 }
 
 .trend-chart-container:hover {
@@ -2057,6 +2060,9 @@
   overflow-y: hidden;
   padding: 4px;
   scroll-behavior: smooth;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .trend-chart-canvas-wrapper::-webkit-scrollbar {
