@@ -1,8 +1,14 @@
 {
   "date": "2026-05-23",
   "time": "16:10",
-  "full_time": "2026-05-23 16:10:07",
+  "full_time": "2026-05-23 16:10:55",
   "last_commits": [
+  {
+    "hash": "f92e3b5",
+    "message": "fix: resolve unused MoveRecord import type in TrendChart.tsx",
+    "author": "yc",
+    "date": "2026-05-23"
+  },
   {
     "hash": "db0772f",
     "message": "fix: constrain TrendChart container to 720px max-width to fix flex expansion and force native inner scrolling",
@@ -24,12 +30,6 @@
   {
     "hash": "9e61222",
     "message": "feat: implement interactive real-time SVG game trend line chart with turning points and jump-to-ply mechanics",
-    "author": "yc",
-    "date": "2026-05-23"
-  },
-  {
-    "hash": "10118f3",
-    "message": "build: update changelog and build info with performance optimizations",
     "author": "yc",
     "date": "2026-05-23"
   }

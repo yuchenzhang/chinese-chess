@@ -818,14 +818,27 @@ export function ChessGame({
               >
                 悔棋
               </button>
-              <button type="button" className="btn" onClick={flipBoard}>
-                翻转视角
+              <button 
+                type="button" 
+                className="btn" 
+                onClick={flipBoard}
+                disabled={aiThinking}
+                title="与 AI 互换阵营/执子颜色，并由 AI 替您下当前这步"
+              >
+                🔄 执子换边
               </button>
             </div>
             
             <div className="actions mobile-only" style={{ marginTop: '1rem' }}>
-               <button type="button" className="btn" onClick={flipBoard} style={{ flex: 1 }}>
-                翻转视角
+              <button 
+                type="button" 
+                className="btn" 
+                onClick={flipBoard} 
+                disabled={aiThinking}
+                title="与 AI 互换阵营/执子颜色，并由 AI 替您下当前这步"
+                style={{ flex: 1 }}
+              >
+                🔄 执子换边
               </button>
               {isAiTurn && !aiThinking && (
                 <button

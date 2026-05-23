@@ -755,12 +755,26 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
   }, [loadSessionOnBoard, persist])
 
   const flipBoard = useCallback(() => {
-    const game = gameRef.current
-    if (!game) return
-    game.changePlaySide(activeSession.playerSide)
-    const ctx = canvasRef.current?.getContext('2d')
-    if (ctx) game.draw(ctx)
-  }, [activeSession.playerSide])
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session) return
+
+    const newPlayerSide: PieceSide = session.playerSide === 'RED' ? 'BLACK' : 'RED'
+    
+    // 1. Update the playerSide in state, localStorage, and visual board orientation
+    setPlayerSide(newPlayerSide)
+
+    // 2. If vs AI and the new player side makes it the AI's turn, trigger the AI!
+    if (session.vsAi && !session.winner && session.status === 'active') {
+      const aiSide = newPlayerSide === 'RED' ? 'BLACK' : 'RED'
+      if (session.currentTurn === aiSide) {
+        console.log(`[象棋·换边] 玩家由 ${session.playerSide} 换为 ${newPlayerSide}。现在轮到 AI (${aiSide}) 走子！`)
+        setAiThinking(true)
+        setTimeout(() => {
+          void runAiTurnRef.current()
+        }, 50)
+      }
+    }
+  }, [setPlayerSide])
 
   useEffect(() => {
     const canvas = canvasRef.current
