@@ -1,9 +1,9 @@
 # Change Log
-Generated at: 2026-05-23 02:44:04
+Generated at: 2026-05-23 16:10:07
 
 ### 最近五次提交
+* db0772f - fix: constrain TrendChart container to 720px max-width to fix flex expansion and force native inner scrolling (yc, 2026-05-23)
+* 714e10e - perf: simplify TrendChart to scrollable minimal stock-line style and add auto-scrolling centering (yc, 2026-05-23)
+* 05bb704 - feat: implement game history rollback (jump-back-in-time) mechanic linked with TrendChart plies (yc, 2026-05-23)
+* 9e61222 - feat: implement interactive real-time SVG game trend line chart with turning points and jump-to-ply mechanics (yc, 2026-05-23)
 * 10118f3 - build: update changelog and build info with performance optimizations (yc, 2026-05-23)
-* 2fc5fb7 - perf: optimize minimax search speed by 30x-50x and protect quiescence search from timing out (yc, 2026-05-23)
-* d8ceff4 - fix: resolve TS6133 unused declared errors for captureSnapshot, board, and move (yc, 2026-05-23)
-* bc08186 - feat: replace automatic snapshot triggers with manual snapshot recording tracing back up to 10 moves (yc, 2026-05-23)
-* 0fa67b1 - feat: restrict cycle detection to AI-initiated attacks only (allows repeating defensive moves, preventing human cheating) (yc, 2026-05-23)

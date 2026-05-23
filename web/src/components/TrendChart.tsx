@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { evaluatePosition } from '../utils/evaluation'
-import type { GameSession, MoveRecord } from '../types/gameSession'
+import type { GameSession } from '../types/gameSession'
 import type { UseReplayResult } from '../hooks/useReplay'
 
 interface TrendChartProps {
