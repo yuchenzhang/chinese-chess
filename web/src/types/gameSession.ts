@@ -73,6 +73,8 @@ export interface GameSession {
   coachingInstruction?: string
   /** 是否为教练/战术瞬间对局 */
   isCoaching?: boolean
+  /** 棋盘视觉朝向侧，在“执子换边”时保持不变，默认与初始 playerSide 一致 */
+  boardVisualSide?: PieceSide
 }
 
 export interface SessionStore {

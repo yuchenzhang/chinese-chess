@@ -21,12 +21,14 @@ export function createSession(
 ): GameSession {
   const now = Date.now()
   const initialPen = partial?.initialPen ?? partial?.positionPen ?? initBoardPen
+  const playerSide = partial?.playerSide ?? 'RED'
   return {
     id: newId(),
     title: partial?.title ?? defaultSessionTitle(),
     createdAt: now,
     updatedAt: now,
-    playerSide: partial?.playerSide ?? 'RED',
+    playerSide,
+    boardVisualSide: playerSide,
     initialPen,
     positionPen: initialPen,
     moveHistory: [],
@@ -63,6 +65,7 @@ export function loadStore(): SessionStore {
       currentTurn: s.currentTurn ?? null,
       vsAi: s.vsAi ?? true,
       engineDepth: s.engineDepth ?? 4,
+      boardVisualSide: s.boardVisualSide ?? s.playerSide ?? 'RED',
     }))
     return parsed
   } catch {

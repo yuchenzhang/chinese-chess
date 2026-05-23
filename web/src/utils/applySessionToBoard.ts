@@ -28,6 +28,6 @@ export function applySessionToBoard(
     internal.gameSide = session.playerSide
   }
 
-  game.changePlaySide(session.playerSide)
+  game.changePlaySide(session.boardVisualSide ?? session.playerSide)
   game.draw(ctx)
 }

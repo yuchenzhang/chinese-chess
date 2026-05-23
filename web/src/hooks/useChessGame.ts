@@ -567,7 +567,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
   const setPlayerSide = useCallback(
     (side: PieceSide) => {
-      patchActiveSession({ playerSide: side })
+      patchActiveSession({ playerSide: side, boardVisualSide: side })
       const game = gameRef.current
       if (game) {
         game.changePlaySide(side)
@@ -720,6 +720,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       currentTurn: firstTurn,
       initialPen: newPen,
       positionPen: newPen,
+      boardVisualSide: side,
     })
 
     if (session.vsAi && firstTurn === getAiSide(side)) {
@@ -760,10 +761,23 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
     const newPlayerSide: PieceSide = session.playerSide === 'RED' ? 'BLACK' : 'RED'
     
-    // 1. Update the playerSide in state, localStorage, and visual board orientation
-    setPlayerSide(newPlayerSide)
+    // 1. Update only playerSide in state and store (keep boardVisualSide stable!)
+    patchActiveSession({ playerSide: newPlayerSide })
 
-    // 2. If vs AI and the new player side makes it the AI's turn, trigger the AI!
+    // 2. Decouple visual board orientation from playerSide during the role swap
+    const game = gameRef.current
+    if (game) {
+      const internal = game as unknown as { gameSide: PieceSide | null }
+      internal.gameSide = newPlayerSide
+      
+      const visualSide = session.boardVisualSide ?? session.playerSide
+      game.changePlaySide(visualSide)
+      
+      const ctx = canvasRef.current?.getContext('2d')
+      if (ctx) game.draw(ctx)
+    }
+
+    // 3. If vs AI and the new player side makes it the AI's turn, trigger the AI!
     if (session.vsAi && !session.winner && session.status === 'active') {
       const aiSide = newPlayerSide === 'RED' ? 'BLACK' : 'RED'
       if (session.currentTurn === aiSide) {
@@ -774,7 +788,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
         }, 50)
       }
     }
-  }, [setPlayerSide])
+  }, [patchActiveSession])
 
   useEffect(() => {
     const canvas = canvasRef.current
