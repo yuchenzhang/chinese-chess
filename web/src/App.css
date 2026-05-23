@@ -1951,3 +1951,269 @@
 .eval-info-btn:hover {
   opacity: 1 !important;
 }
+
+/* ==========================================
+   Interactive Trend Chart Styling
+   ========================================== */
+.trend-chart-container {
+  background: rgba(30, 41, 59, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.trend-chart-container:hover {
+  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow: 
+    0 12px 36px rgba(0, 0, 0, 0.3),
+    0 0 16px rgba(96, 165, 250, 0.05);
+}
+
+.trend-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.trend-chart-title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.trend-title-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.5px;
+}
+
+.trend-advantage-pill {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.trend-advantage-pill.equal {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.trend-advantage-pill.red-adv {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.15);
+}
+
+.trend-advantage-pill.black-adv {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.15);
+}
+
+.trend-replay-indicator {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  padding: 2px 8px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pulse-replay {
+  animation: replayPulse 2s infinite ease-in-out;
+}
+
+@keyframes replayPulse {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+.trend-chart-canvas-wrapper {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  overflow: visible;
+  padding: 4px;
+}
+
+.trend-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* Pulsing rings for turning points */
+.trend-turning-ring {
+  transform-origin: center;
+  animation: turningPulse 1.8s infinite ease-out;
+}
+
+@keyframes turningPulse {
+  0% {
+    r: 5;
+    opacity: 1;
+    stroke-width: 1.5;
+  }
+  100% {
+    r: 12;
+    opacity: 0;
+    stroke-width: 0.5;
+  }
+}
+
+.trend-turning-group:hover .trend-turning-ring {
+  animation-duration: 0.8s;
+}
+
+/* Glassmorphic tooltips */
+.trend-chart-tooltip {
+  z-index: 100;
+  transition: left 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.trend-tooltip-card {
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 12px 28px rgba(0, 0, 0, 0.5),
+    0 0 16px rgba(96, 165, 250, 0.15);
+  border-radius: 12px;
+  padding: 10px 14px;
+  width: 180px;
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+}
+
+.trend-tooltip-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+
+.trend-tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 4px;
+}
+
+.trend-tooltip-ply {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 700;
+}
+
+.trend-tooltip-notation {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.trend-tooltip-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trend-tooltip-score {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.trend-tooltip-alert {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin-top: 4px;
+}
+
+.trend-alert-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.trend-alert-badge.brilliant {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.trend-alert-badge.mistake {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.trend-alert-badge.reversal {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.trend-alert-desc {
+  font-size: 0.65rem;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.trend-tooltip-arrow {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(15, 23, 42, 0.92);
+}
+
+@keyframes tooltipFadeIn {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.95); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.trend-chart-footer {
+  margin-top: 8px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.3;
+  text-align: center;
+}
+

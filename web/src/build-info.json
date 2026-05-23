@@ -1,8 +1,20 @@
 {
   "date": "2026-05-23",
-  "time": "02:01",
-  "full_time": "2026-05-23 02:01:18",
+  "time": "02:44",
+  "full_time": "2026-05-23 02:44:04",
   "last_commits": [
+  {
+    "hash": "10118f3",
+    "message": "build: update changelog and build info with performance optimizations",
+    "author": "yc",
+    "date": "2026-05-23"
+  },
+  {
+    "hash": "2fc5fb7",
+    "message": "perf: optimize minimax search speed by 30x-50x and protect quiescence search from timing out",
+    "author": "yc",
+    "date": "2026-05-23"
+  },
   {
     "hash": "d8ceff4",
     "message": "fix: resolve TS6133 unused declared errors for captureSnapshot, board, and move",
@@ -20,18 +32,6 @@
     "message": "feat: restrict cycle detection to AI-initiated attacks only (allows repeating defensive moves, preventing human cheating)",
     "author": "yc",
     "date": "2026-05-23"
-  },
-  {
-    "hash": "e13742c",
-    "message": "feat: re-verify and optimize cycle detection, ensuring 100% correct repetition avoidance with zero side effects on normal AI engine decisions",
-    "author": "yc",
-    "date": "2026-05-23"
-  },
-  {
-    "hash": "a7b95cb",
-    "message": "feat: 局势评估进度条与分水岭检测优化",
-    "author": "yc",
-    "date": "2026-05-22"
   }
 ]
 }
