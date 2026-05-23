@@ -60,6 +60,7 @@ export function ChessGame({
     confirmPendingSnapshotWithType,
     cancelPendingSnapshot,
     triggerManualSnapshot,
+    rollbackToPly,
     boardSize,
   } = useChessGame()
 
@@ -417,6 +418,7 @@ export function ChessGame({
               session={activeSession}
               replay={replay}
               onShowExplanation={onShowExplanation}
+              onRollback={rollbackToPly}
             />
 
             <div className={`board-frame ${boardGlow === 'positive' ? 'glow-positive' : boardGlow === 'negative' ? 'glow-negative' : ''}`} data-tour="board">

@@ -7,6 +7,7 @@ interface TrendChartProps {
   session: GameSession
   replay: UseReplayResult
   onShowExplanation?: () => void
+  onRollback?: (targetPly: number) => void
 }
 
 interface ChartPoint {
@@ -22,7 +23,7 @@ interface ChartPoint {
   turningPointDesc?: string
 }
 
-export function TrendChart({ session, replay, onShowExplanation }: TrendChartProps) {
+export function TrendChart({ session, replay, onShowExplanation, onRollback }: TrendChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -254,7 +255,30 @@ export function TrendChart({ session, replay, onShowExplanation }: TrendChartPro
           )}
         </div>
         
-        <div className="trend-header-actions">
+        <div className="trend-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {onRollback && replay.isReplaying && replay.currentPly < replay.totalPlies && (
+            <button
+              type="button"
+              className="btn-soft-action glow-amber-btn btn-rollback-time"
+              onClick={() => {
+                onRollback(replay.currentPly)
+                replay.exitReplay()
+              }}
+              title={`回退整个棋局到第 ${replay.currentPly} 步状态`}
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: '700',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              ⏳ 回退至此步
+            </button>
+          )}
           {onShowExplanation && (
             <button 
               className="eval-info-btn" 

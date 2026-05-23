@@ -50,6 +50,7 @@ export interface UseChessGameResult {
   confirmPendingSnapshotWithType: (type: 'positive' | 'negative') => void
   cancelPendingSnapshot: () => void
   triggerManualSnapshot: () => void
+  rollbackToPly: (targetPly: number) => void
 }
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
@@ -654,6 +655,47 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     queueMicrotask(() => loadSessionOnBoard(updatedSession))
   }, [patchActiveSession, loadSessionOnBoard])
 
+  const rollbackToPly = useCallback((targetPly: number) => {
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session) return
+    if (targetPly < 0 || targetPly > session.moveHistory.length) return
+    if (aiThinkingRef.current) return
+
+    setKeyPieceAlert(null)
+    setAiError(null)
+    aiRunIdRef.current++
+
+    const newHistory = session.moveHistory.slice(0, targetPly)
+    
+    // Determine the FEN state at targetPly
+    const newPen = targetPly === 0
+      ? (session.initialPen ?? 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w')
+      : session.moveHistory[targetPly - 1].penCode
+
+    // Recover current turn from newPen
+    const penParts = newPen.split(' ')
+    const turnChar = penParts[1] || 'r'
+    const newTurn: PieceSide = (turnChar === 'r' || turnChar === 'w') ? 'RED' : 'BLACK'
+
+    patchActiveSession({
+      moveHistory: newHistory,
+      positionPen: newPen,
+      currentTurn: newTurn,
+      winner: null,
+      status: 'active',
+    })
+
+    const updatedSession = { 
+      ...session, 
+      moveHistory: newHistory, 
+      positionPen: newPen, 
+      currentTurn: newTurn, 
+      winner: null, 
+      status: 'active' as const 
+    }
+    queueMicrotask(() => loadSessionOnBoard(updatedSession))
+  }, [patchActiveSession, loadSessionOnBoard])
+
   const startNewGame = useCallback(() => {
     const game = gameRef.current
     const canvas = canvasRef.current
@@ -1029,6 +1071,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     confirmPendingSnapshotWithType,
     cancelPendingSnapshot,
     triggerManualSnapshot,
+    rollbackToPly,
     boardSize: BOARD_SIZE,
     boardPadding: BOARD_PADDING,
   }
