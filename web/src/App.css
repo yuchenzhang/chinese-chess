@@ -2053,14 +2053,32 @@
   background: rgba(15, 23, 42, 0.4);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.04);
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 4px;
+  scroll-behavior: smooth;
+}
+
+.trend-chart-canvas-wrapper::-webkit-scrollbar {
+  height: 5px;
+}
+
+.trend-chart-canvas-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+.trend-chart-canvas-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+}
+
+.trend-chart-canvas-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .trend-chart-svg {
   display: block;
-  width: 100%;
-  height: auto;
   overflow: visible;
 }
 
