@@ -51,7 +51,7 @@ export interface UseChessGameResult {
   confirmPendingSnapshot: () => void
   confirmPendingSnapshotWithType: (type: 'positive' | 'negative') => void
   cancelPendingSnapshot: () => void
-  triggerManualSnapshot: () => void
+  triggerManualSnapshot: (currentPly?: number) => void
   rollbackToPly: (targetPly: number) => void
   activeHint: { fromRow: number; fromCol: number; toRow: number; toCol: number } | null
   showHint: (type: 'offensive' | 'defensive') => void
@@ -233,7 +233,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     }
   }, [pendingSnapshot])
 
-  const triggerManualSnapshot = useCallback(() => {
+  const triggerManualSnapshot = useCallback((currentPly?: number) => {
     const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
     if (!session) return
     if (session.moveHistory.length === 0) {
@@ -241,7 +241,9 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       return
     }
 
-    const triggerMoveIndex = session.moveHistory.length - 1
+    const triggerMoveIndex = (currentPly !== undefined && currentPly > 0)
+      ? Math.min(currentPly - 1, session.moveHistory.length - 1)
+      : session.moveHistory.length - 1
 
     // Extract last 10 plies ending at triggerMoveIndex
     const startIndex = Math.max(0, triggerMoveIndex - 9)
@@ -261,11 +263,49 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       ? (session.initialPen ?? session.positionPen)
       : session.moveHistory[startIndex - 1].penCode
 
+    // Dynamic Title Generation based on overall situation
+    const currentMove = session.moveHistory[triggerMoveIndex]
+    let dynamicTitle = session.title || '人机对弈'
+    if (currentMove) {
+      const ply = triggerMoveIndex + 1
+      const sideText = currentMove.side === 'RED' ? '红方' : '黑方'
+      let moveDesc = currentMove.notation
+      if (currentMove.captured) {
+        moveDesc += `(吃${currentMove.captured.displayName})`
+      }
+      
+      const score = currentMove.evaluation !== undefined ? currentMove.evaluation : 0
+      let advantageText = ''
+      if (currentMove.inCheck) {
+        advantageText = '将军防守'
+      } else if (Math.abs(score) < 100) {
+        advantageText = '均势抗衡'
+      } else if (score > 800) {
+        advantageText = '红大胜在望'
+      } else if (score < -800) {
+        advantageText = '黑攻势如潮'
+      } else if (score > 250) {
+        advantageText = '红主导攻势'
+      } else if (score < -250) {
+        advantageText = '黑占据主动'
+      } else {
+        advantageText = '暗流涌动'
+      }
+
+      if (currentMove.inCheck) {
+        dynamicTitle = `第 ${ply} 步 - ${sideText}${moveDesc} [将军时刻]`
+      } else if (currentMove.captured && ['车', '馬', '马', '炮'].includes(currentMove.captured.displayName)) {
+        dynamicTitle = `第 ${ply} 步 - ${sideText}${moveDesc} [得子交锋]`
+      } else {
+        dynamicTitle = `第 ${ply} 步 - ${sideText}${moveDesc} [${advantageText}]`
+      }
+    }
+
     const snapshot: TacticalSnapshot = {
       id: `${session.id}-${triggerMoveIndex}-${Date.now()}`,
       timestamp: Date.now(),
       gameId: session.id,
-      gameTitle: session.title || '人机对弈',
+      gameTitle: dynamicTitle,
       type: 'positive', // Default, will be updated based on user's choice
       triggerMoveIndex,
       triggerReason: 'manual',

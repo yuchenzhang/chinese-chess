@@ -131,12 +131,16 @@ export function ChessGame({
         const snap = customEvent.detail.snapshot
         console.log('[象棋·错题本] 收到新战术瞬间事件:', snap)
         
+        const isManual = snap.triggerReason.includes('手动录入') || snap.triggerReason === 'manual'
+
         // Trigger Toast Alert
         setActiveToast({
           id: snap.id,
           type: snap.type,
-          message: snap.triggerReason,
-          subtext: `已自动录入战术错题本 (${snapList.length}/30)`,
+          message: isManual ? '📸 战术快照录入成功' : `${snap.type === 'positive' ? '👑' : '⚠️'} ${snap.triggerReason}`,
+          subtext: isManual 
+            ? `已存入战术错题本 · ${snap.gameTitle}`
+            : `已自动录入战术错题本 (${snapList.length}/30)`,
           isFadingOut: false
         })
 
@@ -467,7 +471,7 @@ export function ChessGame({
                 </div>
               )}
 
-              {pendingSnapshot && !replay.isReplaying && (
+              {pendingSnapshot && (
                 <div 
                   className={`soft-bubble slide-down ${pendingSnapshot.triggerReason === 'manual' ? 'glow-blue' : (pendingSnapshot.type === 'positive' ? 'glow-green' : 'glow-amber')}`} 
                   role="status"

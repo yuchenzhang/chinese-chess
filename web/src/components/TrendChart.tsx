@@ -8,7 +8,7 @@ interface TrendChartProps {
   replay: UseReplayResult
   onShowExplanation?: () => void
   onRollback?: (targetPly: number) => void
-  onTriggerSnapshot?: () => void
+  onTriggerSnapshot?: (currentPly?: number) => void
 }
 
 interface ChartPoint {
@@ -506,7 +506,7 @@ export function TrendChart({ session, replay, onShowExplanation, onRollback, onT
         <button
           type="button"
           className="btn-soft-action glow-blue-btn"
-          onClick={onTriggerSnapshot}
+          onClick={() => onTriggerSnapshot(replay.currentPly)}
           disabled={!replay.isReplaying || session.moveHistory.length === 0}
           title="手动将当前盘面与前10步对局录入战术错题本"
           style={{
