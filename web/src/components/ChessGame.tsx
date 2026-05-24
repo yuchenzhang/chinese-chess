@@ -598,43 +598,95 @@ export function ChessGame({
               )}
             </div>
             
-            <div className="mobile-main-actions">
-              <button
-                type="button"
-                className="btn primary btn-lg"
-                onClick={startNewGame}
-                disabled={aiThinking}
-              >
-                {startLabel}
-              </button>
+            <div className="mobile-main-actions" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                <button
+                  type="button"
+                  className="btn primary btn-lg"
+                  onClick={startNewGame}
+                  disabled={aiThinking}
+                  style={{ flex: 1 }}
+                >
+                  {startLabel}
+                </button>
+                
+                {isAiTurn && !aiThinking && (
+                  <button
+                    type="button"
+                    className="btn primary btn-lg glow-amber-btn"
+                    onClick={triggerAiMove}
+                    style={{ flex: 1, backgroundColor: 'rgba(245, 158, 11, 0.2)', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fbbf24' }}
+                  >
+                    ▶ 快进 (AI走子)
+                  </button>
+                )}
+              </div>
               
-              <div className="mobile-secondary-row">
+              <div className="mobile-secondary-row" style={{ display: 'flex', gap: '8px', width: '100%' }}>
                 <button 
                   type="button" 
                   className="btn btn-lg" 
                   onClick={() => setShowSettings(!showSettings)}
                   data-tour="mobile-settings-btn"
+                  style={{ flex: 1 }}
                 >
                   {showSettings ? '隐藏设置' : '游戏设置'}
                 </button>
                 <button 
                   type="button" 
                   className="btn btn-lg" 
-                  onClick={triggerManualSnapshot}
-                  disabled={moveHistory.length === 0}
-                  title="手动录入当前局面的战术瞬间"
-                >
-                  📸 录入快照
-                </button>
-                <button 
-                  type="button" 
-                  className="btn btn-lg" 
                   onClick={undoMove}
                   disabled={moveHistory.length === 0 || aiThinking || !!winner}
+                  style={{ flex: 1 }}
                 >
                   悔棋
                 </button>
               </div>
+
+              {activeSession.status === 'active' && !winner && (
+                <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '4px' }}>
+                  <button
+                    type="button"
+                    className="btn-soft-action glow-amber-btn"
+                    onClick={() => showHint('offensive')}
+                    disabled={!canPlayerMove}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      borderRadius: '20px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ⚔️ 进攻提示
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-soft-action glow-blue-btn"
+                    onClick={() => showHint('defensive')}
+                    disabled={!canPlayerMove}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      borderRadius: '20px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🛡️ 防守提示
+                  </button>
+                </div>
+              )}
             </div>
 
             <CapturedPieces
