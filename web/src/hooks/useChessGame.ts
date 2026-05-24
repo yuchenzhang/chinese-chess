@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import ZhChess, { type MoveCallback, type PieceSide } from 'zh-chess'
 import { ApiClientError } from '../llm/apiClient'
 import { requestAiMove } from '../llm/requestAiMove'
-import { Board, Move } from '../utils/engine/board'
+import { Board } from '../utils/engine/board'
 import { AlphaBetaSearch } from '../utils/engine/search'
 import {
   createSession as makeSession,
@@ -53,7 +53,15 @@ export interface UseChessGameResult {
   cancelPendingSnapshot: () => void
   triggerManualSnapshot: (currentPly?: number) => void
   rollbackToPly: (targetPly: number) => void
-  activeHint: { fromRow: number; fromCol: number; toRow: number; toCol: number } | null
+  activeHint: {
+    fromRow: number
+    fromCol: number
+    toRow: number
+    toCol: number
+    type: 'offensive' | 'defensive'
+    crisisSquares?: Array<{ row: number; col: number; reason: string }>
+    opportunitySquares?: Array<{ row: number; col: number; reason: string }>
+  } | null
   showHint: (type: 'offensive' | 'defensive') => void
   clearHint: () => void
 }
@@ -137,7 +145,8 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
   const [lastAiResponse, setLastAiResponse] = useState<string | null>(null)
   const [keyPieceAlert, setKeyPieceAlert] = useState<{ pieceName: string } | null>(null)
   const [pendingSnapshot, setPendingSnapshot] = useState<TacticalSnapshot | null>(null)
-  const [activeHint, setActiveHint] = useState<{ fromRow: number; fromCol: number; toRow: number; toCol: number } | null>(null)
+  const [activeHint, setActiveHint] = useState<UseChessGameResult['activeHint']>(null)
+  const [hintStatusMessage, setHintStatusMessage] = useState<string | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<ZhChess | null>(null)
@@ -184,7 +193,9 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
         activeHint.toCol,
         session.boardVisualSide ?? session.playerSide,
         BOARD_SIZE,
-        BOARD_PADDING
+        BOARD_PADDING,
+        activeHint.crisisSquares,
+        activeHint.opportunitySquares
       )
     }
   }, [activeHint, BOARD_SIZE, BOARD_PADDING])
@@ -564,6 +575,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
   const clearHint = useCallback(() => {
     setActiveHint(null)
+    setHintStatusMessage(null)
     const game = gameRef.current
     const canvas = canvasRef.current
     if (game && canvas) {
@@ -587,6 +599,8 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       const fen = session.positionPen
       const board = Board.fromFen(fen)
       const side = board.sideToMove
+      const us = side
+      const them = us === 'w' ? 'b' : 'w'
 
       // Generate legal moves
       const legalMoves = board.generateLegalMoves()
@@ -595,56 +609,112 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
         return
       }
 
-      // Filter moves based on type
-      const filteredMoves = legalMoves.filter(move => {
-        const piece = board.getPiece(move.from_row, move.from_col)
-        if (piece === null) return false
-        
-        const pieceType = piece.toUpperCase()
-        if (type === 'offensive') {
-          return pieceType === 'R' || pieceType === 'N' || pieceType === 'C'
-        } else {
-          return pieceType === 'A' || pieceType === 'B'
-        }
-      })
-
-      if (filteredMoves.length === 0) {
-        console.log(`[象棋·提示] 暂无符合条件的${type === 'offensive' ? '进攻性' : '防御性'}合法走法`)
-        setAiThinking(false)
-        return
-      }
-
-      // Run an Alpha-Beta search using the user's selected engine difficulty depth
-      let bestMove: Move | null = null
-      let bestScore = side === 'w' ? -Infinity : Infinity
-
+      // Run an Alpha-Beta search on all legal moves using the user's selected engine difficulty depth
       const depth = session.engineDepth ?? 4
       const searcher = new AlphaBetaSearch(depth)
+      
+      const [bestMove] = searcher.search(board, 3.0)
 
-      for (const move of filteredMoves) {
-        const newBoard = board.makeMove(move)
-        const [, score] = searcher.search(newBoard, 0.4)
+      const crisisSquares: Array<{ row: number; col: number; reason: string }> = []
+      const opportunitySquares: Array<{ row: number; col: number; reason: string }> = []
 
-        if (side === 'w') {
-          if (score > bestScore) {
-            bestScore = score
-            bestMove = move
+      if (type === 'defensive') {
+        // --- Calculate Defensive Crises ---
+        // 1. Check if our king is in check (Immediate Check)
+        if (board.isInCheck(us)) {
+          const kingPos = board.getKingPosition(us)
+          if (kingPos) {
+            crisisSquares.push({ row: kingPos[0], col: kingPos[1], reason: '王星被袭' })
           }
+        }
+        
+        // 2. Check if our heavy pieces are under direct attack (Immediate Capture)
+        for (let r = 0; r < 10; r++) {
+          for (let c = 0; c < 9; c++) {
+            const p = board.getPiece(r, c)
+            if (p && (us === 'w' ? board.isRedPiece(p) : board.isBlackPiece(p))) {
+              const pType = p.toUpperCase()
+              if (pType === 'R' || pType === 'N' || pType === 'C') {
+                if (board.isAttacked(r, c, them)) {
+                  crisisSquares.push({ row: r, col: c, reason: '重子受袭' })
+                }
+              }
+            }
+          }
+        }
+
+        // 3. Simulate opponent's immediate moves (as if it's their turn) to see upcoming checks/captures
+        const tempBoard = new Board()
+        tempBoard.squares = board.squares.map(row => [...row])
+        tempBoard.sideToMove = them
+        const oppMoves = tempBoard.generateLegalMoves()
+        for (const m of oppMoves) {
+          const nextB = tempBoard.makeMove(m)
+          if (nextB.isInCheck(us)) {
+            const kingPos = board.getKingPosition(us)
+            if (kingPos && !crisisSquares.some(s => s.row === kingPos[0] && s.col === kingPos[1])) {
+              crisisSquares.push({ row: kingPos[0], col: kingPos[1], reason: '潜在将军威胁' })
+            }
+          }
+          const captured = board.getPiece(m.to_row, m.to_col)
+          if (captured && (us === 'w' ? board.isRedPiece(captured) : board.isBlackPiece(captured))) {
+            const pType = captured.toUpperCase()
+            if (pType === 'R' || pType === 'N' || pType === 'C') {
+              if (!crisisSquares.some(s => s.row === m.to_row && s.col === m.to_col)) {
+                crisisSquares.push({ row: m.to_row, col: m.to_col, reason: '潜在吃大子威胁' })
+              }
+            }
+          }
+        }
+
+        // Update informative status message
+        if (crisisSquares.length > 0) {
+          setHintStatusMessage(`🛡️ 防守危机提示：检测到我方在 ${depth} 层搜索内面临 ${crisisSquares.length} 处被将军或吃大子的防守危机！已用红圈标示，并推荐最佳防御路线。`)
         } else {
-          if (score < bestScore) {
-            bestScore = score
-            bestMove = move
+          setHintStatusMessage(`🛡️ 防守危机提示：在 ${depth} 层深度内我方安全，未检测到明显吃子或将军危机。推荐稳健防御走步以固若金汤。`)
+        }
+
+      } else {
+        // --- Calculate Offensive Opportunities ---
+        // 1. Check all legal moves of ours to find immediate checks or captures
+        const ourMoves = board.generateLegalMoves()
+        for (const m of ourMoves) {
+          const nextB = board.makeMove(m)
+          if (nextB.isInCheck(them)) {
+            const kPos = board.getKingPosition(them)
+            if (kPos && !opportunitySquares.some(s => s.row === kPos[0] && s.col === kPos[1])) {
+              opportunitySquares.push({ row: kPos[0], col: kPos[1], reason: '可将对方军' })
+            }
           }
+          const targetPiece = board.getPiece(m.to_row, m.to_col)
+          if (targetPiece && (us === 'w' ? board.isBlackPiece(targetPiece) : board.isRedPiece(targetPiece))) {
+            const pType = targetPiece.toUpperCase()
+            if (pType === 'R' || pType === 'N' || pType === 'C') {
+              if (!opportunitySquares.some(s => s.row === m.to_row && s.col === m.to_col)) {
+                opportunitySquares.push({ row: m.to_row, col: m.to_col, reason: '可吃对方大子' })
+              }
+            }
+          }
+        }
+
+        // Update informative status message
+        if (opportunitySquares.length > 0) {
+          setHintStatusMessage(`⚔️ 进攻机会提示：检测到我方在 ${depth} 层搜索内有 ${opportunitySquares.length} 处攻杀对方将军或吃子的大好良机！已用金圈标示，并给出最佳进攻路线。`)
+        } else {
+          setHintStatusMessage(`⚔️ 进攻机会提示：当前 ${depth} 层搜索内暂无直接突破口。推荐通过调兵遣将蓄势待发。`)
         }
       }
 
       if (bestMove) {
-        console.log(`[象棋·提示] 推荐的${type === 'offensive' ? '进攻' : '防守'}走子:`, bestMove)
+        console.log(`[象棋·提示] 推荐的最佳${type === 'offensive' ? '进攻' : '防守'}路线:`, bestMove)
         setActiveHint({
           fromRow: bestMove.from_row,
           fromCol: bestMove.from_col,
           toRow: bestMove.to_row,
-          toCol: bestMove.to_col
+          toCol: bestMove.to_col,
+          type,
+          crisisSquares,
+          opportunitySquares
         })
 
         // Redraw board and overlay immediately
@@ -655,7 +725,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
           if (ctx) {
             // 1. Redraw base board
             applySessionToBoard(game, session, ctx)
-            // 2. Draw overlay
+            // 2. Draw overlay with high-visibility HUD warning/opportunity zones
             drawHint(
               ctx,
               bestMove.from_row,
@@ -664,7 +734,9 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
               bestMove.to_col,
               session.boardVisualSide ?? session.playerSide,
               BOARD_SIZE,
-              BOARD_PADDING
+              BOARD_PADDING,
+              crisisSquares,
+              opportunitySquares
             )
           }
         }
@@ -693,6 +765,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       setAiThinking(false)
       setAiError(null)
       setActiveHint(null)
+      setHintStatusMessage(null)
       const session = sessionsRef.current.find((s) => s.id === id)
       if (!session) return
       persist(sessionsRef.current, id)
@@ -706,6 +779,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     setAiThinking(false)
     setAiError(null)
     setActiveHint(null)
+    setHintStatusMessage(null)
     const session = makeSession({ vsAi: true })
     const next = [session, ...sessionsRef.current]
     persist(next, session.id)
@@ -792,6 +866,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     setAiError(null)
     aiRunIdRef.current++
     setActiveHint(null)
+    setHintStatusMessage(null)
 
     let newHistory = [...session.moveHistory]
     const lastMove = newHistory[newHistory.length - 1]
@@ -880,6 +955,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     setAiError(null)
     aiRunIdRef.current++
     setActiveHint(null)
+    setHintStatusMessage(null)
 
     const side = session.playerSide
     game.gameStart(side)
@@ -1072,6 +1148,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       }
 
       setActiveHint(null)
+      setHintStatusMessage(null)
 
       setSessions((prev) => {
         const next = prev.map((s) => {
@@ -1152,6 +1229,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       if (aiThinkingRef.current) return
 
       setActiveHint(null)
+      setHintStatusMessage(null)
 
       if (session.vsAi) {
         if (getEngineTurn(game) !== session.playerSide) return
@@ -1234,7 +1312,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
   const displayStatus = aiError
     ? aiError
-    : statusMessageFor(activeSession, aiThinking)
+    : (hintStatusMessage || statusMessageFor(activeSession, aiThinking))
 
   const clearKeyPieceAlert = useCallback(() => {
     setKeyPieceAlert(null)
@@ -1301,7 +1379,9 @@ function drawHint(
   toCol: number,
   visualSide: 'RED' | 'BLACK',
   boardSize: number,
-  boardPadding: number
+  boardPadding: number,
+  crisisSquares?: Array<{ row: number; col: number; reason: string }>,
+  opportunitySquares?: Array<{ row: number; col: number; reason: string }>
 ) {
   const width = boardSize - 2 * boardPadding
   const height = boardSize - 2 * boardPadding
@@ -1326,7 +1406,66 @@ function drawHint(
   const end = getCoords(toRow, toCol)
   const pieceRadius = cellWidth * 0.45
 
-  // 1. 绘制起始棋子金色外发光圈
+  // 1. Draw Multi-square Alerts (Defensive Crises or Offensive Opportunities) FIRST as background layers
+  if (crisisSquares && crisisSquares.length > 0) {
+    crisisSquares.forEach(sq => {
+      const coord = getCoords(sq.row, sq.col)
+      // Red Neon Glowing Ring
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(coord.x, coord.y, pieceRadius + 6, 0, 2 * Math.PI)
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.95)' // Neon Red
+      ctx.lineWidth = 3.5
+      ctx.shadowColor = '#ef4444'
+      ctx.shadowBlur = 12
+      ctx.stroke()
+      
+      // Semi-translucent Red Fill
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.13)'
+      ctx.fill()
+      ctx.restore()
+
+      // Drawing a premium small ⚠️ badge on top
+      ctx.save()
+      ctx.fillStyle = '#f59e0b'
+      ctx.font = 'bold 12px sans-serif'
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'
+      ctx.shadowBlur = 3
+      ctx.fillText('⚠️', coord.x - 7, coord.y - pieceRadius - 7)
+      ctx.restore()
+    })
+  }
+
+  if (opportunitySquares && opportunitySquares.length > 0) {
+    opportunitySquares.forEach(sq => {
+      const coord = getCoords(sq.row, sq.col)
+      // Amber Gold Neon Glowing Ring
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(coord.x, coord.y, pieceRadius + 6, 0, 2 * Math.PI)
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.95)' // Amber Gold
+      ctx.lineWidth = 3.5
+      ctx.shadowColor = '#f59e0b'
+      ctx.shadowBlur = 12
+      ctx.stroke()
+
+      // Semi-translucent Gold Fill
+      ctx.fillStyle = 'rgba(245, 158, 11, 0.13)'
+      ctx.fill()
+      ctx.restore()
+
+      // Drawing a premium small ⚔️ badge on top
+      ctx.save()
+      ctx.fillStyle = '#f59e0b'
+      ctx.font = 'bold 12px sans-serif'
+      ctx.shadowColor = 'rgba(0,0,0,0.5)'
+      ctx.shadowBlur = 3
+      ctx.fillText('⚔️', coord.x - 7, coord.y - pieceRadius - 7)
+      ctx.restore()
+    })
+  }
+
+  // 2. 绘制起始棋子金色外发光圈
   ctx.save()
   ctx.beginPath()
   ctx.arc(start.x, start.y, pieceRadius + 5, 0, 2 * Math.PI)
@@ -1337,7 +1476,7 @@ function drawHint(
   ctx.stroke()
   ctx.restore()
 
-  // 2. 绘制目的地方向绿色虚线准星圈
+  // 3. 绘制目的地方向绿色虚线准星圈
   ctx.save()
   ctx.beginPath()
   ctx.arc(end.x, end.y, pieceRadius * 0.7, 0, 2 * Math.PI)
@@ -1357,7 +1496,7 @@ function drawHint(
   ctx.fill()
   ctx.restore()
 
-  // 3. 绘制带有发光箭头的淡蓝色行动导引路径
+  // 4. 绘制带有发光箭头的淡蓝色行动导引路径
   ctx.save()
   ctx.beginPath()
   ctx.moveTo(start.x, start.y)

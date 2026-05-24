@@ -1,9 +1,9 @@
 # Change Log
-Generated at: 2026-05-23 20:38:48
+Generated at: 2026-05-24 11:39:36
 
 ### 最近五次提交
-* cc6100a - feat: keep board visual orientation stable when swapping sides (yc, 2026-05-23)
-* 197121f - feat: implement side-swapping (执子换边) logic so human and AI swap sides and trigger AI move (yc, 2026-05-23)
-* f92e3b5 - fix: resolve unused MoveRecord import type in TrendChart.tsx (yc, 2026-05-23)
-* db0772f - fix: constrain TrendChart container to 720px max-width to fix flex expansion and force native inner scrolling (yc, 2026-05-23)
-* 714e10e - perf: simplify TrendChart to scrollable minimal stock-line style and add auto-scrolling centering (yc, 2026-05-23)
+* 7bc846e - fix: resolve manual snapshot click no-reaction issue, implement dynamic snapshot naming and add premium success toast notifications (yc, 2026-05-24)
+* e6ff779 - fix: synchronize smart tactical hints search depth with the selected AI engine difficulty level (yc, 2026-05-24)
+* e82f69f - fix: add simulated thinking delay to tactical suggestions to prevent double-clicking and provide instant visual blocker feedback (yc, 2026-05-24)
+* 7baf333 - fix: clean up mobile action bar by removing snapshot button, adding fast-forward and tactical suggestions directly under the board (yc, 2026-05-24)
+* cc06d7b - fix: resolve duplicate buttons via CSS specificity, adjust desktop spacing, refine mobile layout hints, and lock review controls to replay mode (yc, 2026-05-24)

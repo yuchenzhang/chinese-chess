@@ -654,6 +654,7 @@ export function ChessGame({
                     className="btn-soft-action glow-amber-btn"
                     onClick={() => showHint('offensive')}
                     disabled={!canPlayerMove}
+                    title="分析当前 AI 难度层数下，是否存在我方可乘之机（将军或吃对方大子），并给出最佳强攻路线"
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -667,13 +668,14 @@ export function ChessGame({
                       cursor: 'pointer',
                     }}
                   >
-                    ⚔️ 进攻提示
+                    ⚔️ 进攻机会提示
                   </button>
                   <button
                     type="button"
                     className="btn-soft-action glow-blue-btn"
                     onClick={() => showHint('defensive')}
                     disabled={!canPlayerMove}
+                    title="分析当前 AI 难度层数下，是否存在有必要防守的危机（已被将军、被吃子或面临潜在危险），并给出最佳防守路线"
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -687,7 +689,7 @@ export function ChessGame({
                       cursor: 'pointer',
                     }}
                   >
-                    🛡️ 防守提示
+                    🛡️ 防守危机提示
                   </button>
                 </div>
               )}
@@ -851,7 +853,7 @@ export function ChessGame({
                       className="btn-soft-action glow-amber-btn"
                       onClick={() => showHint('offensive')}
                       disabled={!canPlayerMove}
-                      title="分析我方所有进攻棋子 (车、马、炮)，给出威力最强的精妙杀招/着法建议"
+                      title="分析当前 AI 难度层数下，是否存在我方可乘之机（将军或吃对方大子），并给出最佳强攻路线"
                       style={{
                         padding: '8px 16px',
                         fontSize: '0.8rem',
@@ -864,14 +866,14 @@ export function ChessGame({
                         cursor: 'pointer',
                       }}
                     >
-                      ⚔️ 进攻战术提示
+                      ⚔️ 进攻机会提示
                     </button>
                     <button
                       type="button"
                       className="btn-soft-action glow-blue-btn"
                       onClick={() => showHint('defensive')}
                       disabled={!canPlayerMove}
-                      title="分析我方所有防御棋子 (相、仕)，给出防御固若金汤/守护大局的稳健走法建议"
+                      title="分析当前 AI 难度层数下，是否存在有必要防守的危机（已被将军、被吃子或面临潜在危险），并给出最佳防守路线"
                       style={{
                         padding: '8px 16px',
                         fontSize: '0.8rem',
@@ -884,7 +886,7 @@ export function ChessGame({
                         cursor: 'pointer',
                       }}
                     >
-                      🛡️ 防守战术提示
+                      🛡️ 防守危机提示
                     </button>
                   </div>
                 </div>
@@ -958,6 +960,7 @@ export function ChessGame({
                     className="btn-soft-action glow-amber-btn"
                     onClick={() => showHint('offensive')}
                     disabled={!canPlayerMove}
+                    title="分析当前 AI 难度层数下，是否存在我方可乘之机（将军或吃对方大子），并给出最佳强攻路线"
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -971,13 +974,14 @@ export function ChessGame({
                       cursor: 'pointer',
                     }}
                   >
-                    ⚔️ 进攻提示
+                    ⚔️ 进攻机会提示
                   </button>
                   <button
                     type="button"
                     className="btn-soft-action glow-blue-btn"
                     onClick={() => showHint('defensive')}
                     disabled={!canPlayerMove}
+                    title="分析当前 AI 难度层数下，是否存在有必要防守的危机（已被将军、被吃子或面临潜在危险），并给出最佳防守路线"
                     style={{
                       flex: 1,
                       padding: '8px 12px',
@@ -991,7 +995,7 @@ export function ChessGame({
                       cursor: 'pointer',
                     }}
                   >
-                    🛡️ 防守提示
+                    🛡️ 防守危机提示
                   </button>
                 </div>
               )}
