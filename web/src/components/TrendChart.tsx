@@ -8,6 +8,7 @@ interface TrendChartProps {
   replay: UseReplayResult
   onShowExplanation?: () => void
   onRollback?: (targetPly: number) => void
+  onTriggerSnapshot?: () => void
 }
 
 interface ChartPoint {
@@ -23,7 +24,7 @@ interface ChartPoint {
   turningPointDesc?: string
 }
 
-export function TrendChart({ session, replay, onShowExplanation, onRollback }: TrendChartProps) {
+export function TrendChart({ session, replay, onShowExplanation, onRollback, onTriggerSnapshot }: TrendChartProps) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const scrollWrapperRef = useRef<HTMLDivElement>(null)
 
@@ -400,10 +401,134 @@ export function TrendChart({ session, replay, onShowExplanation, onRollback }: T
         )}
       </div>
 
+      {/* Premium Replay Control Bar */}
+      <div 
+        className="trend-chart-control-bar"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          padding: '12px 16px',
+          backgroundColor: 'rgba(255, 255, 255, 0.02)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          borderRadius: '0 0 12px 12px',
+          marginTop: '6px'
+        }}
+      >
+        <button
+          type="button"
+          className={`btn-soft-action ${replay.isReplaying && replay.currentPly > 0 ? 'highlight-nav-btn' : 'secondary'}`}
+          onClick={replay.stepBackward}
+          disabled={!replay.isReplaying || replay.currentPly <= 0}
+          title="回退查看上一步走棋"
+          style={{
+            padding: '6px 16px',
+            fontSize: '0.8rem',
+            borderRadius: '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          ◀ 上一步
+        </button>
+
+        <button
+          type="button"
+          className={`btn-soft-action ${replay.isReplaying && replay.currentPly < replay.totalPlies ? 'highlight-nav-btn' : 'secondary'}`}
+          onClick={replay.stepForward}
+          disabled={!replay.isReplaying || replay.currentPly >= replay.totalPlies}
+          title="前进查看下一步走棋"
+          style={{
+            padding: '6px 16px',
+            fontSize: '0.8rem',
+            borderRadius: '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          下一步 ▶
+        </button>
+
+        {replay.isReplaying && (
+          <button
+            type="button"
+            className="btn-soft-action secondary"
+            onClick={replay.exitReplay}
+            style={{
+              padding: '6px 14px',
+              fontSize: '0.8rem',
+              borderRadius: '20px',
+              cursor: 'pointer',
+            }}
+          >
+            🔙 返回当前
+          </button>
+        )}
+
+        <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.1)', margin: '0 8px' }} />
+
+        <button
+          type="button"
+          className="btn-soft-action glow-amber-btn"
+          onClick={() => {
+            if (onRollback) {
+              onRollback(replay.currentPly)
+              replay.exitReplay()
+            }
+          }}
+          disabled={!replay.isReplaying || replay.currentPly >= replay.totalPlies}
+          title="回退整个对局历史到当前选中的这一步状态"
+          style={{
+            padding: '6px 18px',
+            fontSize: '0.8rem',
+            borderRadius: '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          ⏳ 回退至此步
+        </button>
+
+        <button
+          type="button"
+          className="btn-soft-action glow-blue-btn"
+          onClick={onTriggerSnapshot}
+          disabled={session.moveHistory.length === 0}
+          title="手动将当前盘面与前10步对局录入战术错题本"
+          style={{
+            padding: '6px 18px',
+            fontSize: '0.8rem',
+            borderRadius: '20px',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          📸 录入战术快照
+        </button>
+      </div>
+
       {/* Guide footer */}
       {points.length > 1 && (
         <div className="trend-chart-footer" style={{ marginTop: '6px', fontSize: '0.65rem' }}>
-          <span>💡 滑动轨迹或拖动滚动条查看完整棋盘走势，点击折线即可瞬间跳转复盘。</span>
+          <span>💡 左右滑动或拖动滚动条查看完整棋盘走势，点击折线即可跳转复盘，使用控制台切换或回退。</span>
         </div>
       )}
     </div>

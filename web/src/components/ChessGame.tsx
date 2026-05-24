@@ -4,7 +4,6 @@ import { getAiSide } from '../utils/chessSides'
 import { peiceSideMap, type PieceSide } from 'zh-chess'
 import { LlmSettings } from './LlmSettings'
 import { SessionList } from './SessionList'
-import { ReplayControls } from './ReplayControls'
 import { CapturedPieces } from './CapturedPieces'
 import buildInfo from '../build-info.json'
 import { useState, useEffect } from 'react'
@@ -43,6 +42,7 @@ export function ChessGame({
     lastAiPrompt,
     lastAiResponse,
     keyPieceAlert,
+    canPlayerMove,
     startNewGame,
     triggerAiMove,
     undoMove,
@@ -62,6 +62,7 @@ export function ChessGame({
     triggerManualSnapshot,
     rollbackToPly,
     boardSize,
+    showHint,
   } = useChessGame()
 
   const [showSettings, setShowSettings] = useState(false)
@@ -419,6 +420,7 @@ export function ChessGame({
               replay={replay}
               onShowExplanation={onShowExplanation}
               onRollback={rollbackToPly}
+              onTriggerSnapshot={triggerManualSnapshot}
             />
 
             <div className={`board-frame ${boardGlow === 'positive' ? 'glow-positive' : boardGlow === 'negative' ? 'glow-negative' : ''}`} data-tour="board">
@@ -781,6 +783,56 @@ export function ChessGame({
                   ))}
                 </select>
               </label>
+
+              {activeSession.status === 'active' && !winner && (
+                <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '8px', display: 'block' }}>
+                    💡 智能战术提醒 (局势建议)
+                  </span>
+                  <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <button
+                      type="button"
+                      className="btn-soft-action glow-amber-btn"
+                      onClick={() => showHint('offensive')}
+                      disabled={!canPlayerMove}
+                      title="分析我方所有进攻棋子 (车、马、炮)，给出威力最强的精妙杀招/着法建议"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.8rem',
+                        borderRadius: '8px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ⚔️ 进攻战术提示
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-soft-action glow-blue-btn"
+                      onClick={() => showHint('defensive')}
+                      disabled={!canPlayerMove}
+                      title="分析我方所有防御棋子 (相、仕)，给出防御固若金汤/守护大局的稳健走法建议"
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '0.8rem',
+                        borderRadius: '8px',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🛡️ 防守战术提示
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="actions desktop-only">
@@ -801,15 +853,7 @@ export function ChessGame({
                   请求 AI 走子
                 </button>
               )}
-              <button 
-                type="button" 
-                className="btn" 
-                onClick={triggerManualSnapshot}
-                disabled={moveHistory.length === 0}
-                title="手动将当前盘面与前10步对局录入战术错题本"
-              >
-                📸 录入战术快照
-              </button>
+
               <button 
                 type="button" 
                 className="btn" 
@@ -853,50 +897,7 @@ export function ChessGame({
             </div>
           </section>
 
-          <section className="card" data-tour="move-history">
-            <h2>走子记录</h2>
-            <ReplayControls 
-              replay={replay} 
-            />
-            {moveHistory.length === 0 ? (
-              <p className="muted">开局后每步记谱将显示于此</p>
-            ) : (
-              <ol className="move-list">
-                {moveHistory.map((m, i) => (
-                  <li
-                    key={`${i}-${m.penCode}`}
-                    className={`${replay.isReplaying && i + 1 === replay.currentPly ? 'move-active' : ''}${m.captured ? ' move-capture' : ''}${m.isNotable ? ' move-notable' : ''}`}
-                    onClick={() => {
-                      if (replay.isReplaying) {
-                        replay.goToPly(i + 1)
-                      }
-                    }}
-                    style={replay.isReplaying ? { cursor: 'pointer' } : undefined}
-                  >
-                    <span className="move-no">{i + 1}.</span>
-                    <span className="move-side">
-                      {vsAi
-                        ? (m.side === playerSide ? '你' : 'AI')
-                        : peiceSideMap[m.side]
-                      }
-                    </span>
-                    <span className="move-notation">{m.notation}</span>
-                    {m.captured && (
-                      <span className="capture-tag" title={`吃${m.captured.displayName}`}>
-                        ×{m.captured.displayName}
-                      </span>
-                    )}
-                    {m.inCheck && <span className="check-tag">将</span>}
-                    {m.isNotable && (
-                      <span className="notable-tag" title={m.notableReason}>
-                        ★{m.notableReason && <span className="notable-reason">{m.notableReason}</span>}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </section>
+
 
           <section className={`card ${sidebarFlash ? 'sidebar-flash' : ''}`} data-tour="tactical-snapshots" style={{ marginTop: '1.25rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

@@ -80,7 +80,7 @@ export function useReplay(
     }
     internal.gameSide = session.playerSide
 
-    game.changePlaySide(session.playerSide)
+    game.changePlaySide(session.boardVisualSide ?? session.playerSide)
     game.draw(ctx)
   }, [session, gameRef, canvasRef, totalPlies])
 
@@ -126,7 +126,7 @@ export function useReplay(
       internal.winner = null
     }
     internal.gameSide = session.playerSide
-    game.changePlaySide(session.playerSide)
+    game.changePlaySide(session.boardVisualSide ?? session.playerSide)
     game.draw(ctx)
   }, [session, gameRef, canvasRef])
 

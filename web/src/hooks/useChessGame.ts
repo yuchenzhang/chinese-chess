@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import ZhChess, { type MoveCallback, type PieceSide } from 'zh-chess'
 import { ApiClientError } from '../llm/apiClient'
 import { requestAiMove } from '../llm/requestAiMove'
+import { Board, Move } from '../utils/engine/board'
+import { AlphaBetaSearch } from '../utils/engine/search'
 import {
   createSession as makeSession,
   loadStore,
@@ -51,6 +53,9 @@ export interface UseChessGameResult {
   cancelPendingSnapshot: () => void
   triggerManualSnapshot: () => void
   rollbackToPly: (targetPly: number) => void
+  activeHint: { fromRow: number; fromCol: number; toRow: number; toCol: number } | null
+  showHint: (type: 'offensive' | 'defensive') => void
+  clearHint: () => void
 }
 import { applySessionToBoard } from '../utils/applySessionToBoard'
 import { getAiSide, oppositeSide } from '../utils/chessSides'
@@ -132,6 +137,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
   const [lastAiResponse, setLastAiResponse] = useState<string | null>(null)
   const [keyPieceAlert, setKeyPieceAlert] = useState<{ pieceName: string } | null>(null)
   const [pendingSnapshot, setPendingSnapshot] = useState<TacticalSnapshot | null>(null)
+  const [activeHint, setActiveHint] = useState<{ fromRow: number; fromCol: number; toRow: number; toCol: number } | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<ZhChess | null>(null)
@@ -168,7 +174,20 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     applySessionToBoard(game, session, ctx)
-  }, [])
+
+    if (activeHint) {
+      drawHint(
+        ctx,
+        activeHint.fromRow,
+        activeHint.fromCol,
+        activeHint.toRow,
+        activeHint.toCol,
+        session.boardVisualSide ?? session.playerSide,
+        BOARD_SIZE,
+        BOARD_PADDING
+      )
+    }
+  }, [activeHint, BOARD_SIZE, BOARD_PADDING])
 
   const patchActiveSession = useCallback((patch: Partial<GameSession>) => {
     const id = activeSessionIdRef.current
@@ -503,6 +522,106 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     }
   }, [])
 
+  const clearHint = useCallback(() => {
+    setActiveHint(null)
+    const game = gameRef.current
+    const canvas = canvasRef.current
+    if (game && canvas) {
+      const ctx = canvas.getContext('2d')
+      const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+      if (ctx && session) {
+        applySessionToBoard(game, session, ctx)
+      }
+    }
+  }, [])
+
+  const showHint = useCallback((type: 'offensive' | 'defensive') => {
+    const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
+    if (!session) return
+
+    const fen = session.positionPen
+    const board = Board.fromFen(fen)
+    const side = board.sideToMove
+
+    // Generate legal moves
+    const legalMoves = board.generateLegalMoves()
+    if (legalMoves.length === 0) return
+
+    // Filter moves based on type
+    const filteredMoves = legalMoves.filter(move => {
+      const piece = board.getPiece(move.from_row, move.from_col)
+      if (piece === null) return false
+      
+      const pieceType = piece.toUpperCase()
+      if (type === 'offensive') {
+        return pieceType === 'R' || pieceType === 'N' || pieceType === 'C'
+      } else {
+        return pieceType === 'A' || pieceType === 'B'
+      }
+    })
+
+    if (filteredMoves.length === 0) {
+      console.log(`[象棋·提示] 暂无符合条件的${type === 'offensive' ? '进攻性' : '防御性'}合法走法`)
+      return
+    }
+
+    // Run a shallow Alpha-Beta search for each filtered move to find the best one!
+    let bestMove: Move | null = null
+    let bestScore = side === 'w' ? -Infinity : Infinity
+
+    // Using a shallow depth of 3 is fast (<30ms) and provides solid tactical recommendations
+    const searcher = new AlphaBetaSearch(3)
+
+    for (const move of filteredMoves) {
+      const newBoard = board.makeMove(move)
+      const [, score] = searcher.search(newBoard, 0.4)
+
+      if (side === 'w') {
+        if (score > bestScore) {
+          bestScore = score
+          bestMove = move
+        }
+      } else {
+        if (score < bestScore) {
+          bestScore = score
+          bestMove = move
+        }
+      }
+    }
+
+    if (bestMove) {
+      console.log(`[象棋·提示] 推荐的${type === 'offensive' ? '进攻' : '防守'}走子:`, bestMove)
+      setActiveHint({
+        fromRow: bestMove.from_row,
+        fromCol: bestMove.from_col,
+        toRow: bestMove.to_row,
+        toCol: bestMove.to_col
+      })
+
+      // Redraw board and overlay immediately
+      const game = gameRef.current
+      const canvas = canvasRef.current
+      if (game && canvas) {
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          // 1. Redraw base board
+          applySessionToBoard(game, session, ctx)
+          // 2. Draw overlay
+          drawHint(
+            ctx,
+            bestMove.from_row,
+            bestMove.from_col,
+            bestMove.to_row,
+            bestMove.to_col,
+            session.boardVisualSide ?? session.playerSide,
+            BOARD_SIZE,
+            BOARD_PADDING
+          )
+        }
+      }
+    }
+  }, [BOARD_SIZE, BOARD_PADDING])
+
   const triggerAiMove = useCallback(() => {
     const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
     if (!session?.vsAi || session.status !== 'active' || session.winner) return
@@ -520,6 +639,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       aiRunIdRef.current++
       setAiThinking(false)
       setAiError(null)
+      setActiveHint(null)
       const session = sessionsRef.current.find((s) => s.id === id)
       if (!session) return
       persist(sessionsRef.current, id)
@@ -532,6 +652,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     aiRunIdRef.current++
     setAiThinking(false)
     setAiError(null)
+    setActiveHint(null)
     const session = makeSession({ vsAi: true })
     const next = [session, ...sessionsRef.current]
     persist(next, session.id)
@@ -617,6 +738,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     setKeyPieceAlert(null)
     setAiError(null)
     aiRunIdRef.current++
+    setActiveHint(null)
 
     let newHistory = [...session.moveHistory]
     const lastMove = newHistory[newHistory.length - 1]
@@ -704,6 +826,7 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
 
     setAiError(null)
     aiRunIdRef.current++
+    setActiveHint(null)
 
     const side = session.playerSide
     game.gameStart(side)
@@ -895,6 +1018,8 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
         }
       }
 
+      setActiveHint(null)
+
       setSessions((prev) => {
         const next = prev.map((s) => {
           if (s.id !== id) return s
@@ -972,6 +1097,8 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
       const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
       if (!session || session.status !== 'active') return
       if (aiThinkingRef.current) return
+
+      setActiveHint(null)
 
       if (session.vsAi) {
         if (getEngineTurn(game) !== session.playerSide) return
@@ -1102,5 +1229,109 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     rollbackToPly,
     boardSize: BOARD_SIZE,
     boardPadding: BOARD_PADDING,
+    activeHint,
+    showHint,
+    clearHint,
   }
+}
+
+/**
+ * 战术建议路径绘制引擎 (Rule Engine Visual Overlay)
+ * 
+ * 在棋盘 Canvas 上绘制极具现代科技感的金色/绿色高亮环及路线箭头，给玩家进攻或防御性的精妙建议。
+ */
+function drawHint(
+  ctx: CanvasRenderingContext2D,
+  fromRow: number,
+  fromCol: number,
+  toRow: number,
+  toCol: number,
+  visualSide: 'RED' | 'BLACK',
+  boardSize: number,
+  boardPadding: number
+) {
+  const width = boardSize - 2 * boardPadding
+  const height = boardSize - 2 * boardPadding
+  const cellWidth = width / 8
+  const cellHeight = height / 9
+
+  const getCoords = (r: number, c: number) => {
+    if (visualSide === 'BLACK') {
+      return {
+        x: boardPadding + (8 - c) * cellWidth,
+        y: boardPadding + (9 - r) * cellHeight
+      }
+    } else {
+      return {
+        x: boardPadding + c * cellWidth,
+        y: boardPadding + r * cellHeight
+      }
+    }
+  }
+
+  const start = getCoords(fromRow, fromCol)
+  const end = getCoords(toRow, toCol)
+  const pieceRadius = cellWidth * 0.45
+
+  // 1. 绘制起始棋子金色外发光圈
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(start.x, start.y, pieceRadius + 5, 0, 2 * Math.PI)
+  ctx.strokeStyle = '#d97706' // 温暖琥珀金
+  ctx.lineWidth = 4
+  ctx.shadowColor = '#fbbf24'
+  ctx.shadowBlur = 10
+  ctx.stroke()
+  ctx.restore()
+
+  // 2. 绘制目的地方向绿色虚线准星圈
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(end.x, end.y, pieceRadius * 0.7, 0, 2 * Math.PI)
+  ctx.strokeStyle = '#10b981' // 翡翠绿
+  ctx.lineWidth = 3
+  ctx.setLineDash([4, 4])
+  ctx.shadowColor = '#34d399'
+  ctx.shadowBlur = 8
+  ctx.stroke()
+  ctx.restore()
+
+  // 绘制中心靶心小实心点
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(end.x, end.y, 4, 0, 2 * Math.PI)
+  ctx.fillStyle = '#10b981'
+  ctx.fill()
+  ctx.restore()
+
+  // 3. 绘制带有发光箭头的淡蓝色行动导引路径
+  ctx.save()
+  ctx.beginPath()
+  ctx.moveTo(start.x, start.y)
+  ctx.lineTo(end.x, end.y)
+  ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)' // 亮蓝色
+  ctx.lineWidth = 4
+  ctx.lineCap = 'round'
+  ctx.setLineDash([6, 6])
+  ctx.shadowColor = '#60a5fa'
+  ctx.shadowBlur = 6
+  ctx.stroke()
+
+  // 绘制末梢箭头
+  const angle = Math.atan2(end.y - start.y, end.x - start.x)
+  const arrowLength = 12
+  ctx.beginPath()
+  ctx.moveTo(end.x - pieceRadius * 0.75 * Math.cos(angle), end.y - pieceRadius * 0.75 * Math.sin(angle))
+  ctx.lineTo(
+    end.x - pieceRadius * 0.75 * Math.cos(angle) - arrowLength * Math.cos(angle - Math.PI / 6),
+    end.y - pieceRadius * 0.75 * Math.sin(angle) - arrowLength * Math.sin(angle - Math.PI / 6)
+  )
+  ctx.lineTo(
+    end.x - pieceRadius * 0.75 * Math.cos(angle) - arrowLength * Math.cos(angle + Math.PI / 6),
+    end.y - pieceRadius * 0.75 * Math.sin(angle) - arrowLength * Math.sin(angle + Math.PI / 6)
+  )
+  ctx.closePath()
+  ctx.fillStyle = 'rgba(59, 130, 246, 0.95)'
+  ctx.fill()
+  ctx.restore()
 }
