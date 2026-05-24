@@ -111,11 +111,11 @@
 }
 
 .desktop-only {
-  display: flex;
+  display: flex !important;
 }
 
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 .settings-grid {
@@ -757,11 +757,11 @@
 
 
   .mobile-only {
-    display: flex;
+    display: flex !important;
   }
 
   .desktop-only {
-    display: none;
+    display: none !important;
   }
 
   .mobile-main-actions {
@@ -1713,6 +1713,16 @@
   cursor: pointer;
   transition: all 0.2s ease;
   line-height: 1.2;
+}
+
+.btn-soft-action:disabled {
+  opacity: 0.25 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  background: rgba(255, 255, 255, 0.01) !important;
+  color: rgba(255, 255, 255, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.04) !important;
 }
 
 .btn-soft-action.primary {

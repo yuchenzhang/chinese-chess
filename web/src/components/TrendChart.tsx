@@ -507,7 +507,7 @@ export function TrendChart({ session, replay, onShowExplanation, onRollback, onT
           type="button"
           className="btn-soft-action glow-blue-btn"
           onClick={onTriggerSnapshot}
-          disabled={session.moveHistory.length === 0}
+          disabled={!replay.isReplaying || session.moveHistory.length === 0}
           title="手动将当前盘面与前10步对局录入战术错题本"
           style={{
             padding: '6px 18px',

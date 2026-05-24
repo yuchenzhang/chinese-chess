@@ -785,7 +785,7 @@ export function ChessGame({
               </label>
 
               {activeSession.status === 'active' && !winner && (
-                <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ marginTop: '1.25rem', marginBottom: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#f59e0b', marginBottom: '8px', display: 'block' }}>
                     💡 智能战术提醒 (局势建议)
                   </span>
@@ -893,6 +893,51 @@ export function ChessGame({
                 >
                   请求 AI 走子
                 </button>
+              )}
+
+              {activeSession.status === 'active' && !winner && (
+                <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn-soft-action glow-amber-btn"
+                    onClick={() => showHint('offensive')}
+                    disabled={!canPlayerMove}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      borderRadius: '20px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ⚔️ 进攻提示
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-soft-action glow-blue-btn"
+                    onClick={() => showHint('defensive')}
+                    disabled={!canPlayerMove}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      fontSize: '0.8rem',
+                      borderRadius: '20px',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🛡️ 防守提示
+                  </button>
+                </div>
               )}
             </div>
           </section>
