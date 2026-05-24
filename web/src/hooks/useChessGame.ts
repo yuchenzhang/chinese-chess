@@ -539,87 +539,100 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
     const session = sessionsRef.current.find((s) => s.id === activeSessionIdRef.current)
     if (!session) return
 
-    const fen = session.positionPen
-    const board = Board.fromFen(fen)
-    const side = board.sideToMove
+    // 1. Immediately set aiThinking to true to block clicks and provide visual feedback
+    setAiThinking(true)
 
-    // Generate legal moves
-    const legalMoves = board.generateLegalMoves()
-    if (legalMoves.length === 0) return
+    // 2. Perform engine search after a 600ms delay to feel realistic and premium
+    setTimeout(() => {
+      const fen = session.positionPen
+      const board = Board.fromFen(fen)
+      const side = board.sideToMove
 
-    // Filter moves based on type
-    const filteredMoves = legalMoves.filter(move => {
-      const piece = board.getPiece(move.from_row, move.from_col)
-      if (piece === null) return false
-      
-      const pieceType = piece.toUpperCase()
-      if (type === 'offensive') {
-        return pieceType === 'R' || pieceType === 'N' || pieceType === 'C'
-      } else {
-        return pieceType === 'A' || pieceType === 'B'
+      // Generate legal moves
+      const legalMoves = board.generateLegalMoves()
+      if (legalMoves.length === 0) {
+        setAiThinking(false)
+        return
       }
-    })
 
-    if (filteredMoves.length === 0) {
-      console.log(`[象棋·提示] 暂无符合条件的${type === 'offensive' ? '进攻性' : '防御性'}合法走法`)
-      return
-    }
-
-    // Run a shallow Alpha-Beta search for each filtered move to find the best one!
-    let bestMove: Move | null = null
-    let bestScore = side === 'w' ? -Infinity : Infinity
-
-    // Using a shallow depth of 3 is fast (<30ms) and provides solid tactical recommendations
-    const searcher = new AlphaBetaSearch(3)
-
-    for (const move of filteredMoves) {
-      const newBoard = board.makeMove(move)
-      const [, score] = searcher.search(newBoard, 0.4)
-
-      if (side === 'w') {
-        if (score > bestScore) {
-          bestScore = score
-          bestMove = move
+      // Filter moves based on type
+      const filteredMoves = legalMoves.filter(move => {
+        const piece = board.getPiece(move.from_row, move.from_col)
+        if (piece === null) return false
+        
+        const pieceType = piece.toUpperCase()
+        if (type === 'offensive') {
+          return pieceType === 'R' || pieceType === 'N' || pieceType === 'C'
+        } else {
+          return pieceType === 'A' || pieceType === 'B'
         }
-      } else {
-        if (score < bestScore) {
-          bestScore = score
-          bestMove = move
-        }
-      }
-    }
-
-    if (bestMove) {
-      console.log(`[象棋·提示] 推荐的${type === 'offensive' ? '进攻' : '防守'}走子:`, bestMove)
-      setActiveHint({
-        fromRow: bestMove.from_row,
-        fromCol: bestMove.from_col,
-        toRow: bestMove.to_row,
-        toCol: bestMove.to_col
       })
 
-      // Redraw board and overlay immediately
-      const game = gameRef.current
-      const canvas = canvasRef.current
-      if (game && canvas) {
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          // 1. Redraw base board
-          applySessionToBoard(game, session, ctx)
-          // 2. Draw overlay
-          drawHint(
-            ctx,
-            bestMove.from_row,
-            bestMove.from_col,
-            bestMove.to_row,
-            bestMove.to_col,
-            session.boardVisualSide ?? session.playerSide,
-            BOARD_SIZE,
-            BOARD_PADDING
-          )
+      if (filteredMoves.length === 0) {
+        console.log(`[象棋·提示] 暂无符合条件的${type === 'offensive' ? '进攻性' : '防御性'}合法走法`)
+        setAiThinking(false)
+        return
+      }
+
+      // Run a shallow Alpha-Beta search for each filtered move to find the best one!
+      let bestMove: Move | null = null
+      let bestScore = side === 'w' ? -Infinity : Infinity
+
+      // Using a shallow depth of 3 is fast (<30ms) and provides solid tactical recommendations
+      const searcher = new AlphaBetaSearch(3)
+
+      for (const move of filteredMoves) {
+        const newBoard = board.makeMove(move)
+        const [, score] = searcher.search(newBoard, 0.4)
+
+        if (side === 'w') {
+          if (score > bestScore) {
+            bestScore = score
+            bestMove = move
+          }
+        } else {
+          if (score < bestScore) {
+            bestScore = score
+            bestMove = move
+          }
         }
       }
-    }
+
+      if (bestMove) {
+        console.log(`[象棋·提示] 推荐的${type === 'offensive' ? '进攻' : '防守'}走子:`, bestMove)
+        setActiveHint({
+          fromRow: bestMove.from_row,
+          fromCol: bestMove.from_col,
+          toRow: bestMove.to_row,
+          toCol: bestMove.to_col
+        })
+
+        // Redraw board and overlay immediately
+        const game = gameRef.current
+        const canvas = canvasRef.current
+        if (game && canvas) {
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            // 1. Redraw base board
+            applySessionToBoard(game, session, ctx)
+            // 2. Draw overlay
+            drawHint(
+              ctx,
+              bestMove.from_row,
+              bestMove.from_col,
+              bestMove.to_row,
+              bestMove.to_col,
+              session.boardVisualSide ?? session.playerSide,
+              BOARD_SIZE,
+              BOARD_PADDING
+            )
+          }
+        }
+      }
+
+      // 3. Clear thinking state once complete
+      setAiThinking(false)
+    }, 600)
   }, [BOARD_SIZE, BOARD_PADDING])
 
   const triggerAiMove = useCallback(() => {
