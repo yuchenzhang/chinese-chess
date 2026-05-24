@@ -574,12 +574,12 @@ export function useChessGame(): UseChessGameResult & { boardSize: number; boardP
         return
       }
 
-      // Run a shallow Alpha-Beta search for each filtered move to find the best one!
+      // Run an Alpha-Beta search using the user's selected engine difficulty depth
       let bestMove: Move | null = null
       let bestScore = side === 'w' ? -Infinity : Infinity
 
-      // Using a shallow depth of 3 is fast (<30ms) and provides solid tactical recommendations
-      const searcher = new AlphaBetaSearch(3)
+      const depth = session.engineDepth ?? 4
+      const searcher = new AlphaBetaSearch(depth)
 
       for (const move of filteredMoves) {
         const newBoard = board.makeMove(move)
